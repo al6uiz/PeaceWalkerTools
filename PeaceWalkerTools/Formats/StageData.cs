@@ -38,7 +38,6 @@ namespace PeaceWalkerTools
                 // +0xc 이놈은 뭔지모르겠다. 그냥 덮어써버린다.
 
                 sd.Hash = new Hash(key1, key2, key3);
-                var ENTITY_LIST_START = 32;
 
                 var hash = sd.Hash;
 
@@ -89,6 +88,7 @@ namespace PeaceWalkerTools
                         using (var sr = new StringReader(Encoding.ASCII.GetString(decompressed)))
                         {
                             string line = null;
+
                             while ((line = sr.ReadLine()) != null)
                             {
                                 if (line.EndsWith(".rlc"))
@@ -102,7 +102,7 @@ namespace PeaceWalkerTools
 
 
                     var extension = entity.Extension == EntityExtensions.Unknown ? "" : entity.Extension.ToString();
-                    //var extension = "";
+
                     File.WriteAllBytes(string.Format(@"Extracted\{2:000}_{0:X8}.{1}", entity.Unknown, extension, i), decompressed);
                 }
             }
@@ -110,32 +110,6 @@ namespace PeaceWalkerTools
 
             return sd;
         }
-
-
-        private static void UpdateOffset(byte[] raw, int offset, int count)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                var position = offset + i * 16;
-
-                var offseted = BitConverter.ToInt32(raw, position + 8);
-
-                var a0 = offseted + offset;
-                if (offseted != 0)
-                {
-                    Write(raw, position + 8, a0);
-                }
-
-                offseted = BitConverter.ToInt32(raw, position + 12);
-
-                a0 = offseted + offset;
-                if (offseted != 0)
-                {
-                    Write(raw, position + 0xc, a0);
-                }
-            }
-        }
-
 
         private static void Decrypt(byte[] listData, ref Hash hash)
         {
@@ -207,8 +181,7 @@ namespace PeaceWalkerTools
 
             return hash;
         }
-
-
+        
         public static int HashString(string input)
         {
             var hash = 0;
@@ -224,92 +197,6 @@ namespace PeaceWalkerTools
             }
 
             return hash;
-        }
-
-        public static void Decrypt(string path)
-        {
-            var raw = File.ReadAllBytes(path);
-
-            var key1 = BitConverter.ToInt32(raw, 0);
-            var key2 = BitConverter.ToInt32(raw, 4);
-            var key3 = BitConverter.ToInt32(raw, 8);
-            // +0xc 이놈은 뭔지모르겠다. 그냥 덮어써버린다.
-
-            var firshtHash = GenerateHash(key1, key2, key3);
-            var headerLength = 32;
-
-            var hash = firshtHash;
-            Decrypt(raw, 12, 0x14, ref hash);
-
-            var entityCount = BitConverter.ToUInt16(raw, 0x18);
-
-            var entityListStart = headerLength;
-            var entitiyListLength = entityCount * 12;
-
-            var lookupStart = entityListStart + entitiyListLength;
-            var lookupLength = entityCount * 16;
-
-            Decrypt(raw, entityListStart, entitiyListLength, ref hash);
-
-            Decrypt(raw, lookupStart, lookupLength, ref hash);
-
-            UpdateOffset(raw, lookupStart, entityCount);
-
-            var entities = new List<Entity>();
-            var lookupList = new List<LookupBlock>();
-
-            for (int i = 0; i < entityCount; i++)
-            {
-                var offset = entityListStart + i * 12;
-                var entity = new Entity
-                {
-                    Size = BitConverter.ToUInt32(raw, offset),
-                    Unknown = BitConverter.ToUInt32(raw, offset + 4),
-                    Position = BitConverter.ToUInt32(raw, offset + 8)
-                };
-                entities.Add(entity);
-
-                var offset2 = lookupStart + i * 16;
-
-                lookupList.Add(new LookupBlock
-                {
-                    Key = BitConverter.ToUInt32(raw, offset2),
-                    Index = BitConverter.ToUInt32(raw, offset2 + 4),
-                    Unknown2 = BitConverter.ToUInt32(raw, offset2 + 8),
-                    Unknown3 = BitConverter.ToUInt32(raw, offset2 + 12)
-                });
-            }
-
-
-            var a1 = HashString("init");
-            var a2 = GetFileNameHash("data.cnf");
-
-            var entityIndex = FindEntityFromLookup(raw, lookupStart, a1, a2);
-
-            var entityOffset = entityListStart + entityIndex * 12;
-
-            if (a1 >= 0)
-            {
-                var size = BitConverter.ToInt32(raw, entityOffset + 0);
-                var key = BitConverter.ToInt32(raw, entityOffset + 4);
-                var offset = BitConverter.ToInt32(raw, entityOffset + 8);
-
-
-                File.WriteAllBytes("data.cnf", Decompress(firshtHash, raw, offset, size));
-            }
-
-
-
-
-
-
-
-            var output = path + ".dec2";
-            File.WriteAllBytes(output, raw);
-
-
-
-
         }
 
         private static byte[] Decompress(Hash hash, byte[] raw, int offset, int size)
@@ -347,52 +234,6 @@ namespace PeaceWalkerTools
             return extension;
         }
 
-        private static int FindEntityFromLookup(byte[] raw, int lookupStart, int hash1, int hash2)
-        {
-            var hash = hash2;
-
-            if (hash1 != 0)
-            {
-                hash = hash1 >> 4;
-
-                var temp = hash1 << 4;
-                temp ^= hash;
-                temp ^= 0x10EA;
-                temp = ~temp;
-                hash = temp ^ hash2;
-            }
-
-            var position = lookupStart;
-
-            var key = BitConverter.ToInt32(raw, position);
-
-            while (key != hash)
-            {
-                if (key < hash)
-                {
-                    position = BitConverter.ToInt32(raw, position + 8);
-                }
-                else
-                {
-                    position = BitConverter.ToInt32(raw, position + 12);
-                }
-
-                if (position == 0)
-                {
-                    return -1;
-                }
-
-                key = BitConverter.ToInt32(raw, position);
-
-            }
-            return BitConverter.ToInt32(raw, position + 4);
-        }
-
-
-
-
-
-
         private static void Decrypt(byte[] raw, int offset, int length, ref Hash hash)
         {
             var position = (int)((offset + 3) & 0xFFFFFFFC);
@@ -417,44 +258,13 @@ namespace PeaceWalkerTools
             hash.High = high;
         }
 
-        //private static void Decrypt(byte[] raw, int offset, int length, ref Hash hash)
-        //{
-        //    var a3 = hash.Low;
-        //    var t0 = hash.High;
-        //    var v1 = (offset + 3);
-        //    var v0 = 0x02e90000;
-        //    v1 = (int)(v1 & 0xFFFFFFFC);
-        //    length = (int)(length & 0xFFFFFFFC);
-
-        //    var t1 = v0 | 0xedd;
-
-        //    var lo = 0;
-        //    while (length > 0)
-        //    {
-        //        lo = a3;
-        //        lo += t0 * t1;
-        //        v0 = BitConverter.ToInt32(raw, v1);
-        //        length -= 4;
-        //        v0 = v0 ^ t0;
-        //        Write(raw, v1, v0);
-        //        t0 = lo;
-        //        v1 += 4;
-        //    }
-        //    lo = a3;
-        //    v0 = v1 - offset;
-        //    hash.High = t0;
-        //}
-
         private static void Write(byte[] data, int offset, int value)
         {
-            data[offset] = (byte)(value & 0xFF);
+            data[offset + 0] = (byte)((value >> 0) & 0xFF);
             data[offset + 1] = (byte)((value >> 8) & 0xFF);
             data[offset + 2] = (byte)((value >> 16) & 0xFF);
             data[offset + 3] = (byte)((value >> 24) & 0xFF);
         }
-
-
-
 
         private static Hash GenerateHash(int hash0, int hash1, int hash2)
         {
@@ -466,9 +276,8 @@ namespace PeaceWalkerTools
 
             return hash;
         }
-
-
     }
+
     class Entity
     {
         public uint Size { get; set; }

@@ -9,7 +9,6 @@ namespace PeaceWalkerTools
 {
     public static class Extensions
     {
-
         public static bool Find(this byte[] data, string text, int start)
         {
             for (int i = 0; i < text.Length; i++)
@@ -45,7 +44,7 @@ namespace PeaceWalkerTools
 
 
 
-        static List<byte> _stringBuffer = new List<byte>();
+        private static List<byte> _stringBuffer = new List<byte>();
 
         public static void Offset(this Stream fs, int v)
         {
@@ -92,9 +91,6 @@ namespace PeaceWalkerTools
             {
                 fs.Position = position;
             }
-
-
-
         }
 
 
@@ -145,7 +141,5 @@ namespace PeaceWalkerTools
 
             return Encoding.UTF8.GetString(_stringBuffer.ToArray());
         }
-
-
     }
 }

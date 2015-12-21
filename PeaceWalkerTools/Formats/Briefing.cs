@@ -11,19 +11,21 @@ namespace PeaceWalkerTools
 {
     class Briefing
     {
-
-
         private static void UnpackBriefing2()
         {
             var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
             var fileName = "BRIEFING.DAT";
 
+            Unpack(location, fileName);
+        }
+
+        private static void Unpack(string location, string fileName)
+        {
             var magic = new byte[] { 0x06, 0x3B, 0x5D, 0x4B };
 
             var raw = File.ReadAllBytes(Path.Combine(location, fileName));
 
             var buffer = new List<byte>();
-
 
             var section = new List<byte[]>();
             var offset = 0;
@@ -80,11 +82,8 @@ namespace PeaceWalkerTools
                 setIndex++;
             }
 
-
             workbook.Save("briefing.xlsx");
-
         }
-
 
 
         private static void UnpackBriefing()
@@ -268,7 +267,7 @@ namespace PeaceWalkerTools
 
 
     }
-    
+
     class BriefingSet
     {
         public int Offset { get; set; }
@@ -287,7 +286,7 @@ namespace PeaceWalkerTools
 
         public int HeaderStart { get; set; }
     }
-    
+
     class BriefingEntry
     {
         public int Offset { get; set; }

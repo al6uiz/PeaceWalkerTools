@@ -27,12 +27,10 @@ namespace PeaceWalkerTools
 
         private static int WEAPON_TEXT_START = 0x0035B028;
         private static int WEAPON_TEXT_END = 0x003737A8;
-        //private static int textLength = 0x18780;
 
         private static int WEAPON_META_START = 0x003737A8;
         private static int WEAPON_META_END = 0x0037DA9C;
         private static int WEAPON_META_OFFSET = 0x74;
-        //private static int metaLength = 0xA2F4;
 
 
 
@@ -43,6 +41,25 @@ namespace PeaceWalkerTools
         private static int ITEM_META_END = 0x003F8494;
         private static int ITEM_META_OFFSET = 0xAC;
 
+        private static SectionParameters PARAMETERS_WEAPON = new SectionParameters
+        {
+            TextStart = WEAPON_TEXT_START,
+            TextEnd = WEAPON_TEXT_END,
+
+            MetaStart = WEAPON_META_START,
+            MetaEnd = WEAPON_META_END,
+            MetaOffset = WEAPON_META_OFFSET
+        };
+
+        private static SectionParameters PARAMETERS_ITEM = new SectionParameters
+        {
+            TextStart = ITEM_TEXT_START,
+            TextEnd = ITEM_TEXT_END,
+
+            MetaStart = ITEM_META_START,
+            MetaEnd = ITEM_META_END,
+            MetaOffset = ITEM_META_OFFSET
+        };
 
 
         public static void Unpack(string path)
@@ -50,25 +67,9 @@ namespace PeaceWalkerTools
             var data = File.ReadAllBytes(path + ".original");
             var location = Path.GetDirectoryName(path);
 
-            Do(location, data, "Weapon.xlsx", new SectionParameters
-            {
-                TextStart = WEAPON_TEXT_START,
-                TextEnd = WEAPON_TEXT_END,
+            Do(location, data, "Weapon.xlsx", PARAMETERS_WEAPON);
 
-                MetaStart = WEAPON_META_START,
-                MetaEnd = WEAPON_META_END,
-                MetaOffset = WEAPON_META_OFFSET
-            });
-
-            Do(location, data, "Item.xlsx", new SectionParameters
-            {
-                TextStart = ITEM_TEXT_START,
-                TextEnd = ITEM_TEXT_END,
-
-                MetaStart = ITEM_META_START,
-                MetaEnd = ITEM_META_END,
-                MetaOffset = ITEM_META_OFFSET
-            });
+            Do(location, data, "Item.xlsx", PARAMETERS_ITEM);
 
         }
 
@@ -84,15 +85,17 @@ namespace PeaceWalkerTools
 
             ReplaceFromWorkbook(excelPath, map);
 
-            Update(Path.Combine(location,"EBOOT.BIN"), data, map, section);
+            Update(Path.Combine(location, "EBOOT.BIN"), data, map, section);
         }
 
         private static void ReplaceFromWorkbook(string excelPath, Dictionary<int, ItemEntity> map)
         {
-
             var cr = new string(new char[] { (char)0x0d, });
+
             var sheet = Workbook.Load(excelPath).Worksheets.First();
+
             var rowIndex = 1;
+
             while (true)
             {
                 var row = sheet.Rows[rowIndex++];

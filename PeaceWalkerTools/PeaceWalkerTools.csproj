@@ -47,23 +47,22 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="EndianBinaryReader.cs" />
-    <Compile Include="Briefing.cs" />
-    <Compile Include="DAR.cs" />
-    <Compile Include="ExcelUtility.cs" />
-    <Compile Include="Extensions.cs" />
-    <Compile Include="Memory.cs" />
-    <Compile Include="Olang.cs" />
-    <Compile Include="QAR.cs" />
-    <Compile Include="StageData.cs" />
-    <Compile Include="SimplePDT.cs" />
-    <Compile Include="PGF.cs" />
+    <Compile Include="Formats\Briefing.cs" />
+    <Compile Include="Formats\DAR.cs" />
+    <Compile Include="Misc.cs" />
+    <Compile Include="Utilites\ExcelUtility.cs" />
+    <Compile Include="Utilites\Extensions.cs" />
+    <Compile Include="Formats\Olang.cs" />
+    <Compile Include="Formats\QAR.cs" />
+    <Compile Include="Formats\StageData.cs" />
+    <Compile Include="Formats\SimplePDT.cs" />
+    <Compile Include="Formats\PGF.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="StructureConverter.cs" />
-    <Compile Include="Loadout.cs" />
-    <Compile Include="TiledPixelReader.cs" />
-    <Compile Include="TXP.cs" />
+    <Compile Include="Utilites\StructureConverter.cs" />
+    <Compile Include="Formats\Loadout.cs" />
+    <Compile Include="Formats\TiledPixelReader.cs" />
+    <Compile Include="Formats\TXP.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

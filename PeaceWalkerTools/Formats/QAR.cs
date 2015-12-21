@@ -9,7 +9,7 @@ namespace PeaceWalkerTools
 {
     class QAR
     {
-        public static void Extract(string path)
+        public static void Unpack(string path)
         {
             var name = Path.GetFileNameWithoutExtension(path);
             var ext = Path.GetExtension(path);

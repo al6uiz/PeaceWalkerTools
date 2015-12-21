@@ -291,11 +291,11 @@ namespace PeaceWalkerTools
         List<int>[] charmapCompressionTable2 = new List<int>[2];
 
         List<int> charmap_compr;
-        Dictionary<int,int> charmap = new Dictionary<int,int>();
+        Dictionary<int, int> charmap = new Dictionary<int, int>();
         List<char> charmap_unicode = new List<char>();
 
-        Dictionary<int, Glyph> glyphs = new Dictionary<int,Glyph>();
-        Dictionary<int, Glyph> shadowGlyphs= new Dictionary<int,Glyph>();
+        Dictionary<int, Glyph> glyphs = new Dictionary<int, Glyph>();
+        Dictionary<int, Glyph> shadowGlyphs = new Dictionary<int, Glyph>();
         int firstGlyph;
 
 
@@ -564,19 +564,19 @@ namespace PeaceWalkerTools
             //result = StructConverter<T1>.GetStructure(raw);
         }
 
-        public bool GetCharInfo(int charCode, out PGFCharInfo charInfo, int altCharCode, FontFlags glyphType = FontFlags. CHARGLYPH)
+        public bool GetCharInfo(int charCode, out PGFCharInfo charInfo, int altCharCode, FontFlags glyphType = FontFlags.CHARGLYPH)
         {
             Glyph glyph;
             charInfo = new PGFCharInfo();
 
-            if (!GetCharGlyph(charCode, glyphType, out  glyph))
+            if (!GetCharGlyph(charCode, glyphType, out glyph))
             {
                 if (charCode < firstGlyph)
                 {
                     // Character not in font, return zeroed charInfo as on real PSP.
                     return false;
                 }
-                if (!GetCharGlyph(altCharCode, glyphType, out  glyph))
+                if (!GetCharGlyph(altCharCode, glyphType, out glyph))
                 {
                     return false;
                 }
@@ -719,27 +719,37 @@ namespace PeaceWalkerTools
                         switch ((FontPixelFormat)(int)image.pixelFormat)
                         {
                             case FontPixelFormat.PSP_FONT_PIXELFORMAT_8:
-                            // 8-bit color value
-                            pixelColor |= pixelColor << 4;
-                            break;
+                            {
+                                // 8-bit color value
+                                pixelColor |= pixelColor << 4;
+                                break;
+                            }
                             case FontPixelFormat.PSP_FONT_PIXELFORMAT_24:
-                            // 24-bit color value
-                            pixelColor |= pixelColor << 4;
-                            pixelColor |= pixelColor << 8;
-                            pixelColor |= pixelColor << 8;
-                            break;
+                            {
+                                // 24-bit color value
+                                pixelColor |= pixelColor << 4;
+                                pixelColor |= pixelColor << 8;
+                                pixelColor |= pixelColor << 8;
+                                break;
+                            }
                             case FontPixelFormat.PSP_FONT_PIXELFORMAT_32:
-                            // 32-bit color value
-                            pixelColor |= pixelColor << 4;
-                            pixelColor |= pixelColor << 8;
-                            pixelColor |= pixelColor << 16;
-                            break;
+                            {
+                                // 32-bit color value
+                                pixelColor |= pixelColor << 4;
+                                pixelColor |= pixelColor << 8;
+                                pixelColor |= pixelColor << 16;
+                                break;
+                            }
                             case FontPixelFormat.PSP_FONT_PIXELFORMAT_4:
                             case FontPixelFormat.PSP_FONT_PIXELFORMAT_4_REV:
-                            break;
+                            {
+                                break;
+                            }
                             default:
-                            //ERROR_LOG_REPORT(SCEFONT, "Unhandled font pixel format: %d", (int)image.pixelFormat);
-                            break;
+                            {
+                                //ERROR_LOG_REPORT(SCEFONT, "Unhandled font pixel format: %d", (int)image.pixelFormat);
+                                break;
+                            }
                         }
 
                         SetFontPixel(image.bufferPtr, image.bytesPerLine, image.bufWidth, image.bufHeight, pixelX, pixelY, pixelColor, image.pixelFormat);
@@ -750,14 +760,6 @@ namespace PeaceWalkerTools
             }
 
             //gpu.InvalidateCache(image.bufferPtr, image.bytesPerLine * image.bufHeight, GPU_INVALIDATE_SAFE);
-
-
-
-
-
-
-
-
         }
 
         private static readonly byte[] fontPixelSizeInBytes = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
@@ -784,7 +786,7 @@ namespace PeaceWalkerTools
                 case FontPixelFormat.PSP_FONT_PIXELFORMAT_4:
                 case FontPixelFormat.PSP_FONT_PIXELFORMAT_4_REV:
                 {
-                    int oldColor = Memory.Read_U8(framebufferAddr);
+                    int oldColor = Read_U8(framebufferAddr);
                     int newColor;
                     if ((x & 1) != (int)pixelformat)
                     {
@@ -794,27 +796,42 @@ namespace PeaceWalkerTools
                     {
                         newColor = (oldColor & 0xF0) | pixelColor;
                     }
-                    Memory.Write_U8(newColor, framebufferAddr);
+                    Write_U8(newColor, framebufferAddr);
                     break;
                 }
                 case FontPixelFormat.PSP_FONT_PIXELFORMAT_8:
                 {
-                    Memory.Write_U8((byte)pixelColor, framebufferAddr);
+                    Write_U8((byte)pixelColor, framebufferAddr);
                     break;
                 }
                 case FontPixelFormat.PSP_FONT_PIXELFORMAT_24:
                 {
-                    Memory.Write_U8(pixelColor & 0xFF, framebufferAddr + 0);
-                    Memory.Write_U8(pixelColor >> 8, framebufferAddr + 1);
-                    Memory.Write_U8(pixelColor >> 16, framebufferAddr + 2);
+                    Write_U8(pixelColor & 0xFF, framebufferAddr + 0);
+                    Write_U8(pixelColor >> 8, framebufferAddr + 1);
+                    Write_U8(pixelColor >> 16, framebufferAddr + 2);
                     break;
                 }
                 case FontPixelFormat.PSP_FONT_PIXELFORMAT_32:
                 {
-                    Memory.Write_U32(pixelColor, framebufferAddr);
+                    Write_U32(pixelColor, framebufferAddr);
                     break;
                 }
             }
+        }
+
+        private int Read_U8(int framebufferAddr)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void Write_U8(int v1, int v2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void Write_U32(int pixelColor, int framebufferAddr)
+        {
+            throw new NotImplementedException();
         }
 
         static bool isJPCSPFont(string fontName)
@@ -919,8 +936,8 @@ namespace PeaceWalkerTools
             }
             else
             {
-                glyph.yAdjustH = consumeBits(32, fontdata, ref  charPtr);
-                glyph.yAdjustV = consumeBits(32, fontdata, ref  charPtr);
+                glyph.yAdjustH = consumeBits(32, fontdata, ref charPtr);
+                glyph.yAdjustV = consumeBits(32, fontdata, ref charPtr);
             }
 
             if (((FontFlags)glyph.flags & FontFlags.METRIC_ADVANCE_INDEX) == FontFlags.METRIC_ADVANCE_INDEX)
@@ -935,7 +952,7 @@ namespace PeaceWalkerTools
             }
             else
             {
-                glyph.advanceH = consumeBits(32, fontdata, ref  charPtr);
+                glyph.advanceH = consumeBits(32, fontdata, ref charPtr);
                 glyph.advanceV = consumeBits(32, fontdata, ref charPtr);
             }
 
@@ -1000,8 +1017,8 @@ namespace PeaceWalkerTools
             // Skip size.
             charPtr += 14;
 
-            glyph.w = consumeBits(7, fontdata, ref  charPtr);
-            glyph.h = consumeBits(7, fontdata, ref  charPtr);
+            glyph.w = consumeBits(7, fontdata, ref charPtr);
+            glyph.h = consumeBits(7, fontdata, ref charPtr);
 
             glyph.left = consumeBits(7, fontdata, ref charPtr);
             if (glyph.left >= 64)
@@ -1009,7 +1026,7 @@ namespace PeaceWalkerTools
                 glyph.left -= 128;
             }
 
-            glyph.top = consumeBits(7, fontdata, ref  charPtr);
+            glyph.top = consumeBits(7, fontdata, ref charPtr);
             if (glyph.top >= 64)
             {
                 glyph.top -= 128;
@@ -1018,7 +1035,7 @@ namespace PeaceWalkerTools
             glyph.ptr = (int)(charPtr / 8);
             return true;
         }
-        private bool GetCharGlyph(int charCode, FontFlags glyphType, out  Glyph glyph)
+        private bool GetCharGlyph(int charCode, FontFlags glyphType, out Glyph glyph)
         {
             glyph = new Glyph();
             if (charCode < firstGlyph)
@@ -1042,67 +1059,5 @@ namespace PeaceWalkerTools
             }
             return true;
         }
-
-        //// Unused
-        //private int GetCharIndex(int charCode,  List<int> charmapCompressed){
-
-        //}
-
-        private void SetFontPixel(int @base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat)
-        {
-            if (x < 0 || x >= bufWidth || y < 0 || y >= bufHeight)
-            {
-                return;
-            }
-
-            byte[] fontPixelSizeInBytes = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
-            int pixelBytes = fontPixelSizeInBytes[pixelformat];
-            int bufMaxWidth = (pixelBytes == 0 ? bpl * 2 : bpl / pixelBytes);
-            if (x >= bufMaxWidth)
-            {
-                return;
-            }
-
-            int framebufferAddr = (int)(@base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes));
-
-            switch ((FontPixelFormat)pixelformat)
-            {
-                case FontPixelFormat.PSP_FONT_PIXELFORMAT_4:
-                case FontPixelFormat.PSP_FONT_PIXELFORMAT_4_REV:
-                {
-                    int oldColor = Memory.Read_byte(framebufferAddr);
-                    int newColor;
-                    if ((x & 1) != pixelformat)
-                    {
-                        newColor = (pixelColor << 4) | (oldColor & 0xF);
-                    }
-                    else
-                    {
-                        newColor = (oldColor & 0xF0) | pixelColor;
-                    }
-                    Memory.Write_byte(newColor, framebufferAddr);
-                    break;
-                }
-                case FontPixelFormat.PSP_FONT_PIXELFORMAT_8:
-                {
-                    Memory.Write_byte((byte)pixelColor, framebufferAddr);
-                    break;
-                }
-                case FontPixelFormat.PSP_FONT_PIXELFORMAT_24:
-                {
-                    Memory.Write_byte(pixelColor & 0xFF, framebufferAddr + 0);
-                    Memory.Write_byte(pixelColor >> 8, framebufferAddr + 1);
-                    Memory.Write_byte(pixelColor >> 16, framebufferAddr + 2);
-                    break;
-                }
-                case FontPixelFormat.PSP_FONT_PIXELFORMAT_32:
-                {
-                    Memory.Write_int(pixelColor, framebufferAddr);
-                    break;
-                }
-            }
-        }
-
     }
-
 }

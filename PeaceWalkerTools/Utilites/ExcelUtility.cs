@@ -10,7 +10,7 @@ namespace PeaceWalkerTools
 {
     static class ExcelUtility
     {
-        private static Dictionary<string, string> SPECIAL_LETTERS = new Dictionary<string, string> 
+        private static Dictionary<string, string> SPECIAL_LETTERS = new Dictionary<string, string>
         {
             {"“","{*"},
             {"”","*}"},
@@ -20,7 +20,7 @@ namespace PeaceWalkerTools
             {"』", "}"},
         };
 
-        private static Dictionary<string, string> SPECIAL_LETTERS_BACK = new Dictionary<string, string> 
+        private static Dictionary<string, string> SPECIAL_LETTERS_BACK = new Dictionary<string, string>
         {
             {@"{*","“"},
             {@"*}","”"},
@@ -42,20 +42,18 @@ namespace PeaceWalkerTools
         public static void ReplaceSpecialLetter(string path, params int[] columns)
         {
             Replace(path, columns, EXPRESSION, SPECIAL_LETTERS);
-
         }
 
         public static void ReplaceBackSpecialLetter(string path, params int[] columns)
         {
             Replace(path, columns, EXPRESSION_BACK, SPECIAL_LETTERS_BACK);
-
         }
 
         private static void Replace(string path, int[] columns, string expression, Dictionary<string, string> dic)
         {
+            var workbook = Workbook.Load(path);
 
-            var book = Workbook.Load(path);
-            var sheet = book.Worksheets.First();
+            var sheet = workbook.Worksheets.First();
 
             var rowIndex = 1;
 
@@ -68,18 +66,13 @@ namespace PeaceWalkerTools
                     break;
                 }
 
-
                 for (int i = 0; i < columns.Length; i++)
                 {
                     var text = row.Cells[columns[i]].GetText();
                     row.Cells[columns[i]].Value = text.MultipleReplace(expression, dic);
-
                 }
-
-
             }
-            book.Save(path);
+            workbook.Save(path);
         }
-
     }
 }

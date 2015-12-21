@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeaceWalkerTools", "PeaceWalkerTools.csproj", "{7AF69C02-3528-45B4-8975-D40239F002D6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeaceWalkerTools", "PeaceWalkerTools\PeaceWalkerTools.csproj", "{7AF69C02-3528-45B4-8975-D40239F002D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
