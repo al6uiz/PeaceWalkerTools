@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using System.Text;
 
 
 namespace PeaceWalkerTools
@@ -502,7 +500,8 @@ namespace PeaceWalkerTools
 
 
             var raw = BitConverter.GetBytes(c);
-            if (c == 0) return new string('\0', 1);
+            if (c == 0)
+                return new string('\0', 1);
 
             if (raw[3] == 0 && raw[2] == 0 && raw[1] == 0)
             {

@@ -4,91 +4,53 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using Infragistics.Documents.Excel;
+using System.Xml.Serialization;
 
-namespace PeaceWalkerTools
+namespace PeaceWalkerTools.Olang
 {
-    class Olang
+    public class OlangFile
     {
-
-
-        //public static void UnpackOlang()
-        //{
-        //    var location = @"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted";
-        //    location = ".";
-        //    var workbook = new Workbook(WorkbookFormat.Excel2007);
-
-        //    var offsets = new List<int>();
-
-
-        //    foreach (var file in Directory.GetFiles(location, "*.olang", SearchOption.AllDirectories))
-        //    {
-        //        var key = Path.GetFileNameWithoutExtension(file);
-        //        var items = Unpack(file);
-
-        //        continue;
-
-        //        var sheet = workbook.Worksheets.Add(key);
-
-        //        sheet.Columns[1].SetWidth(600, WorksheetColumnWidthUnit.Pixel);
-        //        sheet.Columns[1].CellFormat.WrapText = ExcelDefaultableBoolean.True;
-
-        //        var rowIndex = 1;
-        //        foreach (var item in items)
-        //        {
-        //            var row = sheet.Rows[rowIndex++];
-
-        //            row.Cells[1].Value = item;
-        //        }
-
-        //    }
-
-
-        //    //workbook.Save(Path.Combine(location, "olang_.xlsx"));
-
-
-        //}
-
-        static Dictionary<string, List<string>> _olangs = new Dictionary<string, List<string>>();
-
-
-        static List<byte> _stringBuffer = new List<byte>();
-
-        public static void DumpLang()
-        {
-            //var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
-
-            foreach (var path in Directory.GetFiles(".", "*."))
-            {
-                DumpLang(path);
-            }
-
-        }
-
-
-
+        [XmlAttribute]
         public int Magic { get; set; }
+        [XmlAttribute]
         public int Unknown1 { get; set; }
+        [XmlAttribute]
         public int Unknown2 { get; set; }
+        [XmlAttribute]
         public int Unknown3 { get; set; }
 
+        [XmlAttribute]
         public int ReferenceOffset { get; set; }
+        [XmlAttribute]
         public int Unknown4 { get; set; }
+        [XmlAttribute]
         public int HeaderOffset { get; set; }
+        [XmlAttribute]
         public int BodyOffset { get; set; }
 
+        [XmlAttribute]
+        public int Unknown5 { get; set; }
+        [XmlAttribute]
+        public short EntityCount { get; set; }
+        [XmlAttribute]
+        public short Unknown6 { get; set; }
 
-        public List<OlangEntity> Entities { get; private set; } = new List<OlangEntity>();
-        public List<OlangSubEntity> Headers { get; private set; } = new List<OlangSubEntity>();
-        public Dictionary<int, string> TextMap { get; private set; }
 
-        public static Olang Unpack(string path)
+        public List<Entity> Entities { get; set; } = new List<Entity>();
+        public List<Reference> References { get; set; } = new List<Reference>();
+
+        [XmlIgnore]
+        public Dictionary<int, string> TextMap { get; set; }
+        public List<OlangText> TextList { get; set; }
+        public static OlangFile Unpack(string path)
         {
-            return new Olang(path);
+            var file = new OlangFile();
+            file.Read(path);
+
+            return file;
         }
 
-        public Olang(string path)
+        private void Read(string path)
         {
 
             using (var reader = new BinaryReader(File.OpenRead(path), Encoding.UTF8))
@@ -110,43 +72,36 @@ namespace PeaceWalkerTools
 
                 reader.BaseStream.Position = ReferenceOffset;
 
-                var unknown5 = reader.ReadInt32();
-                var entityCount = reader.ReadInt16();
-                var unknown6 = reader.ReadInt16();
+                Unknown5 = reader.ReadInt32();
+                EntityCount = reader.ReadInt16();
+                Unknown6 = reader.ReadInt16();
 
 
                 for (int i = 0; i < referenceCount; i++)
                 {
-                    var entity = new OlangEntity();
+                    var entity = new Entity();
                     Entities.Add(entity);
                     entity.Key = reader.ReadInt32();
+
+
                     entity.ReferenceIndex = reader.ReadInt16();
                     entity.Unknown1 = reader.ReadInt16();
                 }
 
                 reader.BaseStream.Position = HeaderOffset;
+
                 for (int i = 0; i < headerCount; i++)
                 {
-                    var entity = new OlangSubEntity();
-                    Headers.Add(entity);
+                    var entity = new Reference();
+                    References.Add(entity);
 
                     entity.Unknown0 = reader.ReadInt32();
                     entity.Offset = reader.ReadInt32();
                     entity.Unknown1 = reader.ReadInt32();
-
-
-                    if (entity.Unknown0 != 0xdb0)
-                    {
-                        //Debugger.Break();
-                    }
-                    if (entity.Unknown1 != 1)
-                    {
-                        //Debugger.Break();
-                    }
                 }
 
 
-                TextMap = Headers.Select(x => x.Offset).Distinct().ToDictionary(x => x, x => (string)null);
+                var TextMap = References.Select(x => x.Offset).Distinct().ToDictionary(x => x, x => (string)null);
 
                 foreach (var offset in TextMap.Keys.ToList())
                 {
@@ -155,104 +110,49 @@ namespace PeaceWalkerTools
                     if (position < reader.BaseStream.Length)
                     {
                         reader.BaseStream.Position = position;
+
                         var text = reader.BaseStream.ReadString();
+
                         TextMap[offset] = text;
-                        //Debug.WriteLine(text);
                     }
                 }
+                var textSet = TextMap.OrderBy(x => x.Key).ToList();
 
-                for (int i = 0; i < Headers.Count; i++)
+                TextList = textSet.Select(x => new OlangText { Text = x.Value }).ToList();
+
+
+                var offsetMap = new Dictionary<int, int>();
+                for (int i = 0; i < textSet.Count; i++)
                 {
-                    var text = TextMap[Headers[i].Offset];
-                    Headers[i].Text = text;
+                    offsetMap[textSet[i].Key] = i;
+                }
+
+                for (int i = 0; i < References.Count; i++)
+                {
+                    References[i].OffsetIndex = offsetMap[References[i].Offset];
+                }
+
+
+                for (int i = 0; i < References.Count; i++)
+                {
+                    var text = TextMap[References[i].Offset];
+
+                    References[i].Text = text;
                 }
             }
         }
 
-
-        //private static IEnumerable<string> UnpackOlang(string path)
-        //{
-
-        //    var raw = File.ReadAllBytes(path);
-
-        //    var header1Offset = BitConverter.ToInt32(raw, 16);
-        //    var header2Offset = BitConverter.ToInt32(raw, 20);
-        //    var header3Offset = BitConverter.ToInt32(raw, 24);
-        //    var bodyOffset = BitConverter.ToInt32(raw, 28);
-
-        //    var header1Count = (header3Offset - header1Offset) / 8;
+        internal static OlangFile Pack(string path)
+        {
 
 
-        //    var entitiyCount = (bodyOffset - header3Offset) / 12;
-
-        //    var buffer = new List<byte>();
-
-
-        //    var entities = new List<OlangEntity>();
-
-        //    for (int i = 0; i < entitiyCount; i++)
-        //    {
-        //        var entity = new OlangEntity();
-        //        entities.Add(entity);
-        //        entity.Unknown0 = BitConverter.ToInt32(raw, header1Offset + i * 8);
-        //        entity.Unknown1 = BitConverter.ToInt32(raw, header1Offset + i * 8 + 4);
-
-        //        entity.Unknown2 = BitConverter.ToInt32(raw, header2Offset + i * 8);
-        //        entity.Unknown3 = BitConverter.ToInt32(raw, header2Offset + i * 8 + 4);
-
-        //        entity.Unknown4 = BitConverter.ToInt32(raw, header3Offset + i * 12);
-        //        entity.Offset = BitConverter.ToInt32(raw, header3Offset + i * 12 + 4);
-        //        entity.Unknown6 = BitConverter.ToInt32(raw, header3Offset + i * 12 + 8);
-
-        //        entity.Text = raw.GetString(bodyOffset + entity.Offset);
-
-        //    }
+            return null;
+        }
+    }
 
 
-
-        //    var section = new List<string>();
-        //    var offset = bodyOffset;
-
-        //    var isLastNull = true;
-
-        //    for (int i = bodyOffset; i < raw.Length; i++)
-        //    {
-
-        //        if (raw[i] == 0)
-        //        {
-        //            var length = i - offset;
-
-        //            if (length > 0 && !isLastNull)
-        //            {
-        //                section.Add(Encoding.UTF8.GetString(buffer.ToArray()));
-
-        //                buffer.Clear();
-        //            }
-
-        //            offset = i;
-        //            isLastNull = true;
-        //        }
-        //        else
-        //        {
-        //            buffer.Add(raw[i]);
-        //            isLastNull = false;
-        //        }
-
-        //    }
-
-        //    if (buffer.Count > 0)
-        //    {
-        //        section.Add(Encoding.UTF8.GetString(buffer.ToArray()));
-
-        //        buffer.Clear();
-        //    }
-
-        //    return section;
-        //}
-
-
-
-
+    public class Temp
+    {
         private static void DumpLang(string path)
         {
             var raw = File.ReadAllBytes(path);
@@ -377,33 +277,48 @@ namespace PeaceWalkerTools
                 File.WriteAllBytes(output, item.Value);
             }
         }
-
     }
 
-    class OlangEntity
+    public class Entity
     {
+        [XmlAttribute]
         public int Key { get; set; }
+        [XmlAttribute]
         public short ReferenceIndex { get; set; }
+        [XmlAttribute]
         public short Unknown1 { get; set; }
 
 
         public override string ToString()
         {
-            return string.Format("{0:X8} {1:X4} #{2,-4}", Key, Unknown1, ReferenceIndex);
+            return string.Format("Key: {0:X6} {1:X4} #{2,-4}", Key, Unknown1, ReferenceIndex);
         }
     }
 
-    class OlangSubEntity
+    public class Reference
     {
+        [XmlAttribute]
         public int Unknown0 { get; set; }
+        [XmlIgnore]
         public int Offset { get; set; }
+
+        [XmlAttribute]
+        public int OffsetIndex { get; set; }
+        [XmlAttribute]
         public int Unknown1 { get; set; }
 
         public override string ToString()
         {
-            return string.Format("{0:X8} {1:X8} @{2,-8} {3}", Unknown0, Unknown1, Offset, Text);
+            return string.Format("?:{0:X8} ?:{1:X8} @{2,-8} - {3}", Unknown0, Unknown1, Offset, Text);
         }
 
+        [XmlIgnore]
+        public string Text { get; set; }
+    }
+
+    public class OlangText
+    {
+        [XmlAttribute]
         public string Text { get; set; }
     }
 

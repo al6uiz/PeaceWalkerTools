@@ -4,16 +4,17 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools
 {
+
+
     class Briefing
     {
-        private static void UnpackBriefing2()
+        public static void UnpackBriefing2()
         {
-            var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
+            var location = @"E:\Peace Walker\PSP_GAME\USRDIR";
             var fileName = "BRIEFING.DAT";
 
             Unpack(location, fileName);
@@ -59,13 +60,17 @@ namespace PeaceWalkerTools
 
 
 
-            var workbook = new Workbook(WorkbookFormat.Excel2007);
-            var sheet = workbook.Worksheets.Add("Sheet");
-            sheet.Columns[1].SetWidth(240, WorksheetColumnWidthUnit.Pixel);
-            sheet.Columns[1].CellFormat.WrapText = ExcelDefaultableBoolean.True;
+            //var workbook = new Workbook(WorkbookFormat.Excel2007);
+            //var sheet = workbook.Worksheets.Add("Sheet");
+            //sheet.Columns[1].SetWidth(240, WorksheetColumnWidthUnit.Pixel);
+            //sheet.Columns[1].CellFormat.WrapText = ExcelDefaultableBoolean.True;
+
+            var workbook = Workbook.Load(Path.Combine(location, "Briefing.xlsx"));
+            var sheet = workbook.Worksheets.First();
 
             var setIndex = 0;
             var rowIndex = 1;
+
             foreach (var item in section)
             {
                 var set = ReadBriefing(new MemoryStream(item));
@@ -76,13 +81,13 @@ namespace PeaceWalkerTools
                     var row = sheet.Rows[rowIndex++];
 
                     row.Cells[0].Value = setIndex;
-                    row.Cells[1].Value = entity.Text.Replace("\n", string.Empty).Trim();
+                    row.Cells[1].Value = entity.Text.Trim();
                 }
 
                 setIndex++;
             }
 
-            workbook.Save("briefing.xlsx");
+            workbook.Save(Path.Combine(location, "Briefing.xlsx"));
         }
 
 
@@ -91,42 +96,7 @@ namespace PeaceWalkerTools
             var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
             var fileNameDAT = "BRIEFING.DAT";
             var fileNameExcel = "BRIEFING.xlsx";
-
-            var koreanSet = new Dictionary<int, List<string>>();
-
-            var rowIndex = 1;
-
-            var sheet = Workbook.Load(Path.Combine(location, fileNameExcel)).Worksheets.FirstOrDefault();
-
-            while (true)
-            {
-                var row = sheet.Rows[rowIndex++];
-                if (row.Cells[0].Value == null)
-                {
-                    break;
-                }
-
-                List<string> list;
-                var setIndex = (int)(double)row.Cells[0].Value;
-                if (!koreanSet.TryGetValue(setIndex, out list))
-                {
-                    list = new List<string>();
-                    koreanSet[setIndex] = list;
-                }
-
-                var cell = row.Cells[2];
-                var value = cell.Value;
-
-                if (value is string)
-                {
-                    list.Add(value as string);
-                }
-                else
-                {
-                    list.Add(cell.GetText());
-                }
-            }
-
+            Dictionary<int, List<string>> koreanSet = ReadKorean(location, fileNameExcel);
 
             var sets = new List<BriefingSet>();
 
@@ -218,6 +188,46 @@ namespace PeaceWalkerTools
 
         }
 
+        private static Dictionary<int, List<string>> ReadKorean(string location, string fileNameExcel)
+        {
+            var koreanSet = new Dictionary<int, List<string>>();
+
+            var rowIndex = 1;
+
+            var sheet = Workbook.Load(Path.Combine(location, fileNameExcel)).Worksheets.FirstOrDefault();
+
+            while (true)
+            {
+                var row = sheet.Rows[rowIndex++];
+                if (row.Cells[0].Value == null)
+                {
+                    break;
+                }
+
+                List<string> list;
+                var setIndex = (int)(double)row.Cells[0].Value;
+                if (!koreanSet.TryGetValue(setIndex, out list))
+                {
+                    list = new List<string>();
+                    koreanSet[setIndex] = list;
+                }
+
+                var cell = row.Cells[2];
+                var value = cell.Value;
+
+                if (value is string)
+                {
+                    list.Add(value as string);
+                }
+                else
+                {
+                    list.Add(cell.GetText());
+                }
+            }
+
+            return koreanSet;
+        }
+
         private static BriefingSet ReadBriefing(Stream fs)
         {
             var set = new BriefingSet();
@@ -267,6 +277,10 @@ namespace PeaceWalkerTools
 
 
     }
+
+
+
+
 
     class BriefingSet
     {

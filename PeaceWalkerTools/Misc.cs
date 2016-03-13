@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Infragistics.Documents.Excel;
+using PeaceWalkerTools.Olang;
 
 namespace PeaceWalkerTools
 {
@@ -24,9 +25,10 @@ namespace PeaceWalkerTools
 
             ////StageDataFile.Read(@"E:\Peace Walker\PSP_GAME\USRDIR\STAGEDAT.PDT");
 
-            foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.dar"))
+            foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.qar"))
             {
-                DAR.Unapck(file);
+                //DAR.Unpack(file);
+                QAR.Unpack(file);
             }
 
             ////QAR.Extract(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted\264_51AC44B4.qar");
@@ -35,10 +37,12 @@ namespace PeaceWalkerTools
             //    QAR.Extract(file);
             //}
 
-            //foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.txp", SearchOption.AllDirectories))
-            //{
-            //    TXP.Extract(file);
-            //}
+            foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.txp", SearchOption.AllDirectories))
+            {
+                TXP.Extract(file);
+            }
+
+            return;
             //UnpackOlang();
 
 
@@ -173,7 +177,7 @@ namespace PeaceWalkerTools
 
         private static void UnpackOlang()
         {
-            var location = @"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted";
+            var location = @"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\Extracted";
 
             var workbook = new Workbook(WorkbookFormat.Excel2007);
 
@@ -202,9 +206,22 @@ namespace PeaceWalkerTools
                     Debugger.Break();
                 }
 
-                var olang = Olang.Unpack(hashes.First().Value.First());
+                var path = hashes.First().Value.First();
+                var olang = OlangFile.Unpack(path);
+                var fileName = Path.GetFileName(path);
 
-                var key = Path.GetFileNameWithoutExtension(item.Key);
+                SerializationHelper.Save(olang, @"olang\xml\" + Path.Combine(fileName) + ".xml");
+            }            
+        }
+
+        private static void SaveExcel(string location, Workbook workbook)
+        {
+            foreach (var item in Directory.GetFiles(@"olang\xml", "*.olang.xml"))
+            {
+                var key = Path.GetFileNameWithoutExtension(item);
+                key = key.Remove(key.IndexOf('.'));
+
+                var olang = OlangFile.Pack(item);
 
                 var sheet = workbook.Worksheets.Add(key);
 
@@ -225,9 +242,7 @@ namespace PeaceWalkerTools
             }
 
             workbook.Save(Path.Combine(location, "olang_.xlsx"));
-
         }
-
 
         private static void ReplaceSpecial()
         {

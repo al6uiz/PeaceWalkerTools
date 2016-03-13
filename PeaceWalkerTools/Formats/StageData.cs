@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Ionic.Zlib;
 
 namespace PeaceWalkerTools
@@ -12,6 +11,14 @@ namespace PeaceWalkerTools
     class StageDataFile
     {
         public Hash Hash { get; private set; }
+
+        internal static Dictionary<byte, EntityExtensions> ReverseExtensionMap
+        {
+            get
+            {
+                return _reverseExtensionMap;
+            }
+        }
 
         private const int ENTITY_ITEM_LENGTH = 12;
         private const int LOOKUP_ITEM_LENGTH = 16;
@@ -42,18 +49,18 @@ namespace PeaceWalkerTools
                 var hash = sd.Hash;
 
                 var header = fs.ReadBytes(20);
-                Decrypt(header, ref hash);
+                DecryptionUtility.Decrypt(header, ref hash);
 
                 var entityCount = BitConverter.ToUInt16(header, 12);
                 var lookupStart = BitConverter.ToInt32(header, 16);
 
                 var listData = fs.ReadBytes(entityCount * ENTITY_ITEM_LENGTH);
-                Decrypt(listData, ref hash);
+                DecryptionUtility.Decrypt(listData, ref hash);
 
                 Debug.Assert(fs.Position == lookupStart);
 
                 var lookupData = fs.ReadBytes(entityCount * LOOKUP_ITEM_LENGTH);
-                Decrypt(lookupData, ref hash);
+                DecryptionUtility.Decrypt(lookupData, ref hash);
 
 
                 var entities = new List<Entity>();
@@ -109,11 +116,6 @@ namespace PeaceWalkerTools
 
 
             return sd;
-        }
-
-        private static void Decrypt(byte[] listData, ref Hash hash)
-        {
-            Decrypt(listData, 0, listData.Length, ref hash);
         }
 
         private static readonly byte[] EXTENSION_HASH =
@@ -181,7 +183,7 @@ namespace PeaceWalkerTools
 
             return hash;
         }
-        
+
         public static int HashString(string input)
         {
             var hash = 0;
@@ -204,11 +206,11 @@ namespace PeaceWalkerTools
             var compressed = new byte[size - 4];
             Buffer.BlockCopy(raw, offset + 4, compressed, 0, size - 4);
 
-            Decrypt(raw, offset, 4, ref hash);
+            DecryptionUtility.Decrypt(raw, offset, 4, ref hash);
 
             var decomprssedSize = BitConverter.ToInt32(raw, offset);
 
-            Decrypt(compressed, 0, compressed.Length, ref hash);
+            DecryptionUtility.Decrypt(compressed, 0, compressed.Length, ref hash);
 
             return ZlibStream.UncompressBuffer(compressed);
         }
@@ -227,44 +229,13 @@ namespace PeaceWalkerTools
             }
 
             EntityExtensions extension;
-            if (!_reverseExtensionMap.TryGetValue((byte)(hash >> 24), out extension))
+            if (!ReverseExtensionMap.TryGetValue((byte)(hash >> 24), out extension))
             {
                 extension = EntityExtensions.Unknown;
             }
             return extension;
         }
 
-        private static void Decrypt(byte[] raw, int offset, int length, ref Hash hash)
-        {
-            var position = (int)((offset + 3) & 0xFFFFFFFC);
-            length = (int)(length & 0xFFFFFFFC);
-
-            var high = hash.High;
-
-            while (length > 0)
-            {
-                var temp1 = hash.Low;
-                temp1 += high * 0x02E90EDD;
-
-                var temp2 = BitConverter.ToInt32(raw, position);
-                temp2 = temp2 ^ high;
-                Write(raw, position, temp2);
-                high = temp1;
-
-                length -= 4;
-                position += 4;
-            }
-
-            hash.High = high;
-        }
-
-        private static void Write(byte[] data, int offset, int value)
-        {
-            data[offset + 0] = (byte)((value >> 0) & 0xFF);
-            data[offset + 1] = (byte)((value >> 8) & 0xFF);
-            data[offset + 2] = (byte)((value >> 16) & 0xFF);
-            data[offset + 3] = (byte)((value >> 24) & 0xFF);
-        }
 
         private static Hash GenerateHash(int hash0, int hash1, int hash2)
         {
@@ -342,5 +313,48 @@ namespace PeaceWalkerTools
         sep, mdb, cnf,
 
         Unknown = -1,
+    }
+
+
+    static class DecryptionUtility
+    {
+        private static void Write(byte[] data, int offset, int value)
+        {
+            data[offset + 0] = (byte)((value >> 0) & 0xFF);
+            data[offset + 1] = (byte)((value >> 8) & 0xFF);
+            data[offset + 2] = (byte)((value >> 16) & 0xFF);
+            data[offset + 3] = (byte)((value >> 24) & 0xFF);
+        }
+
+
+        public static void Decrypt(byte[] listData, ref Hash hash)
+        {
+            Decrypt(listData, 0, listData.Length, ref hash);
+        }
+
+        public static void Decrypt(byte[] raw, int offset, int length, ref Hash hash)
+        {
+            var position = (int)((offset + 3) & 0xFFFFFFFC);
+            length = (int)(length & 0xFFFFFFFC);
+
+            var high = hash.High;
+
+            while (length > 0)
+            {
+                var temp1 = hash.Low;
+                temp1 += high * 0x02E90EDD;
+
+                var temp2 = BitConverter.ToInt32(raw, position);
+                temp2 = temp2 ^ high;
+                Write(raw, position, temp2);
+                high = temp1;
+
+                length -= 4;
+                position += 4;
+            }
+
+            hash.High = high;
+        }
+
     }
 }

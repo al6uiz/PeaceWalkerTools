@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace PeaceWalkerTools
 {
@@ -46,7 +44,7 @@ namespace PeaceWalkerTools
 
         }
 
-        public static void Unapck(string path)
+        public static void Unpack(string path)
         {
             var name = Path.GetFileNameWithoutExtension(path);
 

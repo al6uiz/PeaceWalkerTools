@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools
@@ -100,7 +97,8 @@ namespace PeaceWalkerTools
             {
                 var row = sheet.Rows[rowIndex++];
 
-                if (row.Cells[0].Value == null) { break; }
+                if (row.Cells[0].Value == null)
+                { break; }
 
                 var key = (int)Convert.ToDouble(row.Cells[0].Value);
 

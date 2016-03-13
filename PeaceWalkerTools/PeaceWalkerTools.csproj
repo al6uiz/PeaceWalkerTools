@@ -43,13 +43,15 @@
     <Reference Include="System.Xml" />
     <Reference Include="Zlib.Portable, Version=1.11.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>E:\TranslateMGS\Zlib.Portable.dll</HintPath>
+      <HintPath>.\Zlib.Portable.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Formats\Briefing.cs" />
     <Compile Include="Formats\DAR.cs" />
+    <Compile Include="Formats\Slot.cs" />
     <Compile Include="Misc.cs" />
+    <Compile Include="SerializationHelperT.cs" />
     <Compile Include="Utilites\ExcelUtility.cs" />
     <Compile Include="Utilites\Extensions.cs" />
     <Compile Include="Formats\Olang.cs" />
