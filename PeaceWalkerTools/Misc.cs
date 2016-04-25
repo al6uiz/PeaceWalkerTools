@@ -191,27 +191,27 @@ namespace PeaceWalkerTools
 
             foreach (var item in group)
             {
-                var hashes = item.Value.Select(x =>
-                {
-                    using (var fs = File.OpenRead(x))
-                    {
-                        var hash = md5.ComputeHash(fs);
+                //var hashes = item.Value.Select(x =>
+                //{
+                //    using (var fs = File.OpenRead(x))
+                //    {
+                //        var hash = md5.ComputeHash(fs);
 
-                        return new { FileName = x, Hash = BitConverter.ToUInt64(hash, 0) ^ BitConverter.ToUInt64(hash, 8) };
-                    }
-                }).GroupBy(x => x.Hash).ToDictionary(x => x.Key, x => x.Select(y => y.FileName).ToList());
+                //        return new { FileName = x, Hash = BitConverter.ToUInt64(hash, 0) ^ BitConverter.ToUInt64(hash, 8) };
+                //    }
+                //}).GroupBy(x => x.Hash).ToDictionary(x => x.Key, x => x.Select(y => y.FileName).ToList());
 
-                if (hashes.Count != 1)
-                {
-                    Debugger.Break();
-                }
+                //if (hashes.Count != 1)
+                //{
+                //    Debugger.Break();
+                //}
 
-                var path = hashes.First().Value.First();
-                var olang = OlangFile.Unpack(path);
+                var path = item.Value.First();
+                var olang = OlangFile.Read(path);
                 var fileName = Path.GetFileName(path);
 
                 SerializationHelper.Save(olang, @"olang\xml\" + Path.Combine(fileName) + ".xml");
-            }            
+            }
         }
 
         private static void SaveExcel(string location, Workbook workbook)
@@ -221,7 +221,7 @@ namespace PeaceWalkerTools
                 var key = Path.GetFileNameWithoutExtension(item);
                 key = key.Remove(key.IndexOf('.'));
 
-                var olang = OlangFile.Pack(item);
+                var olang = OlangFile.Read(item);
 
                 var sheet = workbook.Worksheets.Add(key);
 
@@ -242,6 +242,58 @@ namespace PeaceWalkerTools
             }
 
             workbook.Save(Path.Combine(location, "olang_.xlsx"));
+        }
+
+        private static void SaveSlotOlangExcel()
+        {
+            var workbook = new Workbook(WorkbookFormat.Excel2007);
+
+            foreach (var item in Directory.GetFiles("SLOT", "*.olang").Select(x => new FileInfo(x)).OrderBy(x => x.Length).Select(x => x.FullName))
+            {
+                var key = Path.GetFileNameWithoutExtension(item);
+                //key = key.Remove(key.IndexOf('.'));
+
+                var olang = OlangFile.Read(item);
+
+                var sheet = workbook.Worksheets.Add(key);
+
+                sheet.Rows[0].Cells[0].Value = "Index";
+                sheet.Rows[0].Cells[1].Value = "Ref";
+                sheet.Rows[0].Cells[2].Value = "Japanese";
+                sheet.Rows[0].Cells[3].Value = "Korean";
+
+                sheet.Columns[2].SetWidth(600, WorksheetColumnWidthUnit.Pixel);
+                sheet.Columns[2].CellFormat.WrapText = ExcelDefaultableBoolean.True;
+
+                sheet.Columns[3].SetWidth(600, WorksheetColumnWidthUnit.Pixel);
+                sheet.Columns[3].CellFormat.WrapText = ExcelDefaultableBoolean.True;
+
+
+                var map = new Dictionary<int, int>();
+                for (int i = 0; i < olang.References.Count; i++)
+                {
+                    var index = olang.References[i].OffsetIndex;
+                    if (!map.ContainsKey(index))
+                    {
+                        map[index] = i;
+                    }
+                }
+
+                for (int i = 0; i < olang.TextList.Count; i++)
+                {
+                    var row = sheet.Rows[i + 1];
+
+                    row.Cells[0].Value = i + 1;
+                    int ri;
+                    if (map.TryGetValue(i, out ri))
+                    {
+                        row.Cells[1].Value = ri;
+                    }
+                    row.Cells[2].Value = olang.TextList[i].Text;
+                }
+            }
+
+            workbook.Save("SlotOlang.xlsx");
         }
 
         private static void ReplaceSpecial()

@@ -1,122 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Serialization;
 using Ionic.Zlib;
 
 namespace PeaceWalkerTools
 {
-    class StageDataFile
+    public class StageDataFile
     {
-        public Hash Hash { get; private set; }
-
-        internal static Dictionary<byte, EntityExtensions> ReverseExtensionMap
-        {
-            get
-            {
-                return _reverseExtensionMap;
-            }
-        }
-
-        private const int ENTITY_ITEM_LENGTH = 12;
-        private const int LOOKUP_ITEM_LENGTH = 16;
-
-        public static StageDataFile Read(string path)
-        {
-            var sd = new StageDataFile();
-
-            if (!Directory.Exists("Extracted"))
-            {
-                Directory.CreateDirectory("Extracted");
-            }
-
-            string combineKey = null;
-
-            using (var fs = File.OpenRead(path))
-            {
-                var raw = File.ReadAllBytes(path);
-
-                var key1 = fs.ReadInt32();
-                var key2 = fs.ReadInt32();
-                var key3 = fs.ReadInt32();
-
-                // +0xc 이놈은 뭔지모르겠다. 그냥 덮어써버린다.
-
-                sd.Hash = new Hash(key1, key2, key3);
-
-                var hash = sd.Hash;
-
-                var header = fs.ReadBytes(20);
-                DecryptionUtility.Decrypt(header, ref hash);
-
-                var entityCount = BitConverter.ToUInt16(header, 12);
-                var lookupStart = BitConverter.ToInt32(header, 16);
-
-                var listData = fs.ReadBytes(entityCount * ENTITY_ITEM_LENGTH);
-                DecryptionUtility.Decrypt(listData, ref hash);
-
-                Debug.Assert(fs.Position == lookupStart);
-
-                var lookupData = fs.ReadBytes(entityCount * LOOKUP_ITEM_LENGTH);
-                DecryptionUtility.Decrypt(lookupData, ref hash);
-
-
-                var entities = new List<Entity>();
-                var lookupList = new List<LookupBlock>();
-
-                for (int i = 0; i < entityCount; i++)
-                {
-                    var offset = i * ENTITY_ITEM_LENGTH;
-                    var entity = new Entity
-                    {
-                        Size = BitConverter.ToUInt32(listData, offset),
-                        Unknown = BitConverter.ToUInt32(listData, offset + 4),
-                        Position = BitConverter.ToUInt32(listData, offset + 8),
-                    };
-                    entities.Add(entity);
-
-                    offset = i * LOOKUP_ITEM_LENGTH;
-                    var lookup = new LookupBlock
-                    {
-                        Key = BitConverter.ToUInt32(lookupData, offset),
-                        Index = BitConverter.ToUInt32(lookupData, offset + 4),
-                        Unknown2 = BitConverter.ToUInt32(lookupData, offset + 8),
-                        Unknown3 = BitConverter.ToUInt32(lookupData, offset + 12)
-                    };
-
-                    lookupList.Add(lookup);
-
-                    var decompressed = Decompress(sd.Hash, raw, (int)entity.Position, (int)entity.Size);
-
-                    if (BitConverter.ToInt32(decompressed, 0) == 0x636F6E2E) // '.noc'ache
-                    {
-                        using (var sr = new StringReader(Encoding.ASCII.GetString(decompressed)))
-                        {
-                            string line = null;
-
-                            while ((line = sr.ReadLine()) != null)
-                            {
-                                if (line.EndsWith(".rlc"))
-                                {
-                                    combineKey = line.Remove(line.IndexOf('.'));
-                                }
-                            }
-                        }
-                    }
-                    entity.Extension = ResolveExtension(HashString(combineKey), (int)lookup.Key);
-
-
-                    var extension = entity.Extension == EntityExtensions.Unknown ? "" : entity.Extension.ToString();
-
-                    File.WriteAllBytes(string.Format(@"Extracted\{2:000}_{0:X8}.{1}", entity.Unknown, extension, i), decompressed);
-                }
-            }
-
-
-            return sd;
-        }
+        public static Dictionary<string, int> ExtensionMap { get; private set; } = Enum.GetValues(typeof(EntityExtensions)).Cast<EntityExtensions>().ToDictionary(x => x.ToString(), x => (int)x);
 
         private static readonly byte[] EXTENSION_HASH =
         {
@@ -145,8 +41,246 @@ namespace PeaceWalkerTools
 
 
 
-        private static Dictionary<string, int> _extensionMap = Enum.GetValues(typeof(EntityExtensions)).Cast<EntityExtensions>().ToDictionary(x => x.ToString(), x => (int)x);
-        private static Dictionary<byte, EntityExtensions> _reverseExtensionMap = GetReverseExtension();
+        public static Dictionary<byte, EntityExtensions> ReverseExtensionMap { get; private set; } = GetReverseExtension();
+
+        [XmlAttribute]
+        public int HashKey1 { get; set; }
+        [XmlAttribute]
+        public int HashKey2 { get; set; }
+        [XmlAttribute]
+        public int HashKey3 { get; set; }
+
+        [XmlIgnore]
+        public Hash Hash { get; private set; }
+
+
+        private const int ENTITY_ITEM_LENGTH = 12;
+        private const int LOOKUP_ITEM_LENGTH = 16;
+
+        public static StageDataFile Read(string path)
+        {
+            var sd = new StageDataFile();
+
+            if (!Directory.Exists("Extracted"))
+            {
+                Directory.CreateDirectory("Extracted");
+            }
+
+            string combineKey = null;
+
+            using (var fs = File.OpenRead(path))
+            {
+                var raw = File.ReadAllBytes(path);
+
+                sd.HashKey1 = fs.ReadInt32();
+                sd.HashKey2 = fs.ReadInt32();
+                sd.HashKey3 = fs.ReadInt32();
+
+                // +0xc 이놈은 뭔지모르겠다. 그냥 덮어써버린다.
+
+                sd.Hash = new Hash(sd.HashKey1, sd.HashKey2, sd.HashKey3);
+
+                var hash = sd.Hash;
+
+                var header = fs.ReadBytes(20);
+                DecryptionUtility.Decrypt(header, ref hash);
+
+                sd.Unknown1 = BitConverter.ToUInt32(header, 0);
+                sd.Unknown2 = BitConverter.ToUInt32(header, 4);
+                sd.Unknown3 = BitConverter.ToUInt32(header, 8);
+
+                sd.EntityCount = BitConverter.ToUInt16(header, 12);
+                sd.LookupStart = BitConverter.ToInt32(header, 16);
+
+                var listData = fs.ReadBytes(sd.EntityCount * ENTITY_ITEM_LENGTH);
+                DecryptionUtility.Decrypt(listData, ref hash);
+
+                Debug.Assert(fs.Position == sd.LookupStart);
+
+                var lookupData = fs.ReadBytes(sd.EntityCount * LOOKUP_ITEM_LENGTH);
+                DecryptionUtility.Decrypt(lookupData, ref hash);
+
+
+                sd.Entities = new List<Entity>();
+                sd.LookupList = new List<LookupBlock>();
+
+                for (int i = 0; i < sd.EntityCount; i++)
+                {
+                    var offset = i * ENTITY_ITEM_LENGTH;
+                    var entity = new Entity
+                    {
+                        Size = BitConverter.ToUInt32(listData, offset),
+                        Hash = BitConverter.ToUInt32(listData, offset + 4),
+                        Position = BitConverter.ToUInt32(listData, offset + 8),
+                    };
+                    sd.Entities.Add(entity);
+
+                    offset = i * LOOKUP_ITEM_LENGTH;
+
+                    var lookup = new LookupBlock
+                    {
+                        Key = BitConverter.ToUInt32(lookupData, offset),
+                        Index = BitConverter.ToUInt32(lookupData, offset + 4),
+                        Unknown1 = BitConverter.ToUInt32(lookupData, offset + 8),
+                        Unknown2 = BitConverter.ToUInt32(lookupData, offset + 12)
+                    };
+
+                    sd.LookupList.Add(lookup);
+
+                    var decompressed = Decompress(sd.Hash, raw, (int)entity.Position, (int)entity.Size);
+
+                    if (BitConverter.ToInt32(decompressed, 0) == 0x636F6E2E) // '.noc'ache
+                    {
+                        using (var sr = new StringReader(Encoding.ASCII.GetString(decompressed)))
+                        {
+                            string line = null;
+
+                            while ((line = sr.ReadLine()) != null)
+                            {
+                                if (line.EndsWith(".rlc"))
+                                {
+                                    combineKey = line.Remove(line.IndexOf('.'));
+                                }
+                            }
+                        }
+                    }
+
+                    entity.Extension = ResolveExtension(HashString(combineKey), (int)lookup.Key);
+                    entity.CombineKey = combineKey;
+
+                    var extension = entity.Extension == EntityExtensions.Unknown ? "" : entity.Extension.ToString();
+
+                    File.WriteAllBytes(string.Format(@"Extracted\{0:X8}.{1}", entity.Hash, extension), decompressed);
+                }
+            }
+
+
+            return sd;
+        }
+
+        public void Write()
+        {
+            var path = Path.GetTempFileName();
+            using (var writer = new BinaryWriter(File.Create(path)))
+            {
+                Hash = new Hash(HashKey1, HashKey2, HashKey3);
+                EntityCount = (ushort)Entities.Count;
+                LookupStart = 32 + EntityCount * ENTITY_ITEM_LENGTH;
+
+                writer.Write(HashKey1);
+                writer.Write(HashKey2);
+                writer.Write(HashKey3);
+
+
+                writer.BaseStream.Position = LookupStart + EntityCount * LOOKUP_ITEM_LENGTH;
+
+                var index = 0;
+
+                foreach (var entity in Entities)
+                {
+                    Debug.Write(string.Format("[{0} / {1}] ", ++index, Entities.Count));
+
+                    entity.Position = (uint)writer.BaseStream.Position;
+                    var data = Path.Combine("Extracted", string.Format("{0:X8}.{1}", entity.Hash, entity.Extension));
+                    var raw = File.ReadAllBytes(data);
+                    var compressed = Compress(Hash, raw);
+                    entity.Size = (uint)compressed.Length;
+                    writer.Write(compressed);
+                }
+
+
+                byte[] subBuffer;
+                var hash = Hash;
+
+                writer.BaseStream.Position = 12;
+
+                using (var msSub = new MemoryStream(20))
+                using (var subWriter = new BinaryWriter(msSub))
+                {
+                    subWriter.Write(Unknown1);
+                    subWriter.Write(Unknown2);
+                    subWriter.Write(Unknown3);
+                    subWriter.Write(EntityCount);
+                    subWriter.Write((ushort)5);
+                    subWriter.Write(LookupStart);
+
+                    subBuffer = msSub.ToArray();
+                }
+
+                DecryptionUtility.Decrypt(subBuffer, ref hash);
+
+                writer.Write(subBuffer);
+
+
+                using (var msSub = new MemoryStream(Entities.Count * ENTITY_ITEM_LENGTH))
+                using (var subWriter = new BinaryWriter(msSub))
+                {
+                    foreach (var entity in Entities)
+                    {
+                        subWriter.Write(entity.Size);
+                        subWriter.Write(entity.Hash);
+                        subWriter.Write(entity.Position);
+                    }
+
+                    subBuffer = msSub.ToArray();
+                }
+
+                DecryptionUtility.Decrypt(subBuffer, ref hash);
+                writer.Write(subBuffer);
+
+
+                using (var msSub = new MemoryStream(Entities.Count * LOOKUP_ITEM_LENGTH))
+                using (var subWriter = new BinaryWriter(msSub))
+                {
+                    foreach (var lookup in LookupList)
+                    {
+                        subWriter.Write(lookup.Key);
+                        subWriter.Write(lookup.Index);
+                        subWriter.Write(lookup.Unknown1);
+                        subWriter.Write(lookup.Unknown2);
+                    }
+
+                    subBuffer = msSub.ToArray();
+                }
+
+                DecryptionUtility.Decrypt(subBuffer, ref hash);
+
+                writer.Write(subBuffer);
+
+            }
+
+            if (File.Exists("STAGEDAT.PDT"))
+            {
+                File.Delete("STAGEDAT.PDT");
+            }
+            File.Move(path, "STAGEDAT.PDT");
+
+        }
+
+        private void Print(byte[] data)
+        {
+            for (int i = 0; i < data.Length; i++)
+            {
+                Debug.Write(string.Format("{0:X2} ", data[i]));
+            }
+
+            Debug.WriteLine("");
+        }
+
+        [XmlIgnore]
+        public ushort EntityCount { get; set; }
+        [XmlIgnore]
+        public int LookupStart { get; set; }
+
+        public List<Entity> Entities { get; set; }
+        public List<LookupBlock> LookupList { get; set; }
+
+        [XmlAttribute]
+        public uint Unknown1 { get; set; }
+        [XmlAttribute]
+        public uint Unknown2 { get; set; }
+        [XmlAttribute]
+        public uint Unknown3 { get; set; }
 
         private static Dictionary<byte, EntityExtensions> GetReverseExtension()
         {
@@ -178,7 +312,7 @@ namespace PeaceWalkerTools
 
 
             int typeIndex;
-            _extensionMap.TryGetValue(extension, out typeIndex);
+            ExtensionMap.TryGetValue(extension, out typeIndex);
             hash |= EXTENSION_HASH[typeIndex] << 24;
 
             return hash;
@@ -215,6 +349,38 @@ namespace PeaceWalkerTools
             return ZlibStream.UncompressBuffer(compressed);
         }
 
+        private static byte[] Compress(Hash hash, byte[] data)
+        {
+            byte[] result = null;
+            using (var ms = new MemoryStream())
+            using (var writer = new BinaryWriter(ms))
+            {
+                var sw = Stopwatch.StartNew();
+                using (var msCompress = new MemoryStream())
+                {
+
+                    using (var zs = new ZlibStream(msCompress, CompressionMode.Compress, CompressionLevel.None))
+                    {
+                        zs.Write(data, 0, data.Length);
+                    }
+
+                    var compressed = msCompress.ToArray();
+
+                    writer.Write(data.Length);
+                    writer.Write(compressed);
+
+                    result = ms.ToArray();
+                    sw.Stop();
+                    Debug.WriteLine(string.Format("Compression : {0:N0} -> {1:N0} - {2} ms ", data.Length, compressed.Length, sw.ElapsedMilliseconds));
+                }
+            }
+
+            DecryptionUtility.Decrypt(result, 0, result.Length, ref hash);
+
+            return result;
+        }
+
+
         private static EntityExtensions ResolveExtension(int hash1, int hash2)
         {
             var hash = hash2;
@@ -229,6 +395,7 @@ namespace PeaceWalkerTools
             }
 
             EntityExtensions extension;
+
             if (!ReverseExtensionMap.TryGetValue((byte)(hash >> 24), out extension))
             {
                 extension = EntityExtensions.Unknown;
@@ -249,32 +416,70 @@ namespace PeaceWalkerTools
         }
     }
 
-    class Entity
+    public class Entity
     {
-        public uint Size { get; set; }
-        public uint Unknown { get; set; }
+        [XmlIgnore]
+        public uint Hash { get; set; }
+        [XmlAttribute("Hash")]
+        public string HashHex
+        {
+            get { return Hash.ToString("X8"); }
+            set { Hash = uint.Parse(value, NumberStyles.HexNumber); }
+        }
+        [XmlIgnore]
         public uint Position { get; set; }
+
+        [XmlIgnore]
+        public uint Size { get; set; }
+
+        [XmlAttribute]
+        public string CombineKey { get; set; }
+
+        [XmlAttribute]
         public EntityExtensions Extension { get; set; }
-
         public override string ToString()
         {
-            return string.Format("@{0} ( {1} ) {2:X8}", Position, Size, Unknown);
+            return string.Format("@{0} ( {1} ) {2:X8}", Position, Size, Hash);
         }
     }
-    class LookupBlock
+    public class LookupBlock
     {
+        [XmlIgnore]
         public uint Key { get; set; }
+        [XmlAttribute("Key")]
+        public string KeyHex
+        {
+            get { return Key.ToString("X8"); }
+            set { Key = uint.Parse(value, NumberStyles.HexNumber); }
+        }
+
+        [XmlAttribute]
         public uint Index { get; set; }
+
+        [XmlIgnore]
+        public uint Unknown1 { get; set; }
+        [XmlAttribute("Unknown1")]
+        public string Unknown1Hex
+        {
+            get { return Unknown1.ToString("X8"); }
+            set { Unknown1 = uint.Parse(value, NumberStyles.HexNumber); }
+        }
+        [XmlIgnore]
         public uint Unknown2 { get; set; }
-        public uint Unknown3 { get; set; }
+        [XmlAttribute("Unknown2")]
+        public string Unknown2Hex
+        {
+            get { return Unknown2.ToString("X8"); }
+            set { Unknown2 = uint.Parse(value, NumberStyles.HexNumber); }
+        }
 
         public override string ToString()
         {
-            return string.Format("{0:X8} {1} {2} {3}", Key, Index, Unknown2, Unknown3);
+            return string.Format("{0:X8} {1} {2} {3}", Key, Index, Unknown1, Unknown2);
         }
     }
 
-    struct Hash
+    public struct Hash
     {
         public Hash(int hash0, int hash1, int hash2)
         {
@@ -288,7 +493,7 @@ namespace PeaceWalkerTools
         public int Low { get; set; }
     }
 
-    enum EntityExtensions
+    public enum EntityExtensions
     {
         mdpe, qar, vrdv, vrd,
         mgm, mds, row, spk,
@@ -316,45 +521,4 @@ namespace PeaceWalkerTools
     }
 
 
-    static class DecryptionUtility
-    {
-        private static void Write(byte[] data, int offset, int value)
-        {
-            data[offset + 0] = (byte)((value >> 0) & 0xFF);
-            data[offset + 1] = (byte)((value >> 8) & 0xFF);
-            data[offset + 2] = (byte)((value >> 16) & 0xFF);
-            data[offset + 3] = (byte)((value >> 24) & 0xFF);
-        }
-
-
-        public static void Decrypt(byte[] listData, ref Hash hash)
-        {
-            Decrypt(listData, 0, listData.Length, ref hash);
-        }
-
-        public static void Decrypt(byte[] raw, int offset, int length, ref Hash hash)
-        {
-            var position = (int)((offset + 3) & 0xFFFFFFFC);
-            length = (int)(length & 0xFFFFFFFC);
-
-            var high = hash.High;
-
-            while (length > 0)
-            {
-                var temp1 = hash.Low;
-                temp1 += high * 0x02E90EDD;
-
-                var temp2 = BitConverter.ToInt32(raw, position);
-                temp2 = temp2 ^ high;
-                Write(raw, position, temp2);
-                high = temp1;
-
-                length -= 4;
-                position += 4;
-            }
-
-            hash.High = high;
-        }
-
-    }
 }

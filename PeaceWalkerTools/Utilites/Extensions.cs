@@ -13,7 +13,8 @@ namespace PeaceWalkerTools
         {
             for (int i = 0; i < text.Length; i++)
             {
-                if (data[start + i] != (byte)text[i]) { return false; }
+                if (data[start + i] != (byte)text[i])
+                { return false; }
             }
 
             return true;
@@ -63,6 +64,11 @@ namespace PeaceWalkerTools
 
         public static string ReadString(this Stream fs, long position)
         {
+            return ReadString(fs, position, Encoding.UTF8);
+        }
+
+        public static string ReadString(this Stream fs, long position, Encoding encoding)
+        {
             _stringBuffer.Clear();
 
             fs.Position = position;
@@ -81,7 +87,11 @@ namespace PeaceWalkerTools
                         }
                         else
                         {
-                            return Encoding.UTF8.GetString(_stringBuffer.ToArray());
+                            var raw = _stringBuffer.ToArray();
+
+                            var text = encoding.GetString(raw);
+
+                            return text;
                         }
                     }
 
@@ -108,7 +118,7 @@ namespace PeaceWalkerTools
 
             return BitConverter.ToInt32(_readBuffer, 0);
         }
-        public static int ReadInt16(this Stream fs)
+        public static short ReadInt16(this Stream fs)
         {
             fs.Read(_readBuffer, 0, 2);
 

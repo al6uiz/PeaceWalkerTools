@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
+using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools.Olang
 {
@@ -20,11 +22,11 @@ namespace PeaceWalkerTools.Olang
         public int Unknown3 { get; set; }
 
         [XmlAttribute]
-        public int ReferenceOffset { get; set; }
+        public int HeaderOffset { get; set; }
         [XmlAttribute]
         public int Unknown4 { get; set; }
         [XmlAttribute]
-        public int HeaderOffset { get; set; }
+        public int ReferenceOffset { get; set; }
         [XmlAttribute]
         public int BodyOffset { get; set; }
 
@@ -41,69 +43,76 @@ namespace PeaceWalkerTools.Olang
 
         [XmlIgnore]
         public Dictionary<int, string> TextMap { get; set; }
+
         public List<OlangText> TextList { get; set; }
-        public static OlangFile Unpack(string path)
+        public static OlangFile Read(string path)
         {
             var file = new OlangFile();
-            file.Read(path);
+            file.ReadInternal(File.OpenRead(path));
 
             return file;
         }
 
-        private void Read(string path)
+        public static OlangFile Read(Stream stream)
+        {
+            var file = new OlangFile();
+            file.ReadInternal(stream);
+
+            return file;
+        }
+        private void ReadInternal(Stream stream)
         {
 
-            using (var reader = new BinaryReader(File.OpenRead(path), Encoding.UTF8))
+            using (var reader = new BinaryReader(stream, Encoding.UTF8))
             {
                 Magic = reader.ReadInt32(); // RBX
                 Unknown1 = reader.ReadInt32();
                 Unknown2 = reader.ReadInt32();
                 Unknown3 = reader.ReadInt32();
 
-                ReferenceOffset = reader.ReadInt32();
-                Unknown4 = reader.ReadInt32();
                 HeaderOffset = reader.ReadInt32();
+                Unknown4 = reader.ReadInt32();
+                ReferenceOffset = reader.ReadInt32();
                 BodyOffset = reader.ReadInt32();
 
-                var referenceCount = (HeaderOffset - ReferenceOffset - 8) / 8;
+                var entityCount = (ReferenceOffset - HeaderOffset - 8) / 8;
 
-                var headerCount = (BodyOffset - HeaderOffset) / 12;
+                var referenceCount = (BodyOffset - ReferenceOffset) / 12;
 
 
-                reader.BaseStream.Position = ReferenceOffset;
+                reader.BaseStream.Position = HeaderOffset;
 
                 Unknown5 = reader.ReadInt32();
                 EntityCount = reader.ReadInt16();
                 Unknown6 = reader.ReadInt16();
 
 
-                for (int i = 0; i < referenceCount; i++)
+                for (int i = 0; i < entityCount; i++)
                 {
                     var entity = new Entity();
                     Entities.Add(entity);
+
                     entity.Key = reader.ReadInt32();
-
-
                     entity.ReferenceIndex = reader.ReadInt16();
                     entity.Unknown1 = reader.ReadInt16();
                 }
 
-                reader.BaseStream.Position = HeaderOffset;
+                reader.BaseStream.Position = ReferenceOffset;
 
-                for (int i = 0; i < headerCount; i++)
+                for (int i = 0; i < referenceCount; i++)
                 {
-                    var entity = new Reference();
-                    References.Add(entity);
+                    var reference = new Reference();
+                    References.Add(reference);
 
-                    entity.Unknown0 = reader.ReadInt32();
-                    entity.Offset = reader.ReadInt32();
-                    entity.Unknown1 = reader.ReadInt32();
+                    reference.Unknown0 = reader.ReadInt32();
+                    reference.Offset = reader.ReadInt32();
+                    reference.Flag = reader.ReadInt32();
                 }
 
 
-                var TextMap = References.Select(x => x.Offset).Distinct().ToDictionary(x => x, x => (string)null);
+                var map = References.Select(x => x.Offset).Distinct().ToDictionary(x => x, x => (string)null);
 
-                foreach (var offset in TextMap.Keys.ToList())
+                foreach (var offset in map.Keys.ToList())
                 {
                     var position = BodyOffset + offset;
 
@@ -113,13 +122,13 @@ namespace PeaceWalkerTools.Olang
 
                         var text = reader.BaseStream.ReadString();
 
-                        TextMap[offset] = text;
+                        map[offset] = text;
                     }
                 }
-                var textSet = TextMap.OrderBy(x => x.Key).ToList();
+
+                var textSet = map.OrderBy(x => x.Key).ToList();
 
                 TextList = textSet.Select(x => new OlangText { Text = x.Value }).ToList();
-
 
                 var offsetMap = new Dictionary<int, int>();
                 for (int i = 0; i < textSet.Count; i++)
@@ -135,25 +144,221 @@ namespace PeaceWalkerTools.Olang
 
                 for (int i = 0; i < References.Count; i++)
                 {
-                    var text = TextMap[References[i].Offset];
+                    var text = map[References[i].Offset];
 
                     References[i].Text = text;
                 }
             }
         }
 
-        internal static OlangFile Pack(string path)
+        public void Write(string path)
         {
+            var stream = File.Create(path);
 
-
-            return null;
+            Write(stream);
         }
+
+        public void Write(Stream stream)
+        {
+            var indexToOffset = new Dictionary<int, int>();
+
+            byte[] rawText = null;
+
+            var index = 0;
+            using (var ms = new MemoryStream())
+            using (var writer = new BinaryWriter(ms, Encoding.UTF8))
+            {
+                foreach (var item in TextList)
+                {
+                    indexToOffset[index++] = (int)writer.BaseStream.Position;
+                    writer.Write(Encoding.UTF8.GetBytes(item.Text));
+                    writer.Write((byte)0);
+                    if (writer.BaseStream.Position % 2 == 1)
+                    {
+                        writer.Write((byte)0);
+                    }
+                }
+
+                rawText = ms.ToArray();
+            }
+
+            //var fileName = Path.GetFileName(path);
+            //var location = Path.GetDirectoryName(path);
+            //path = Path.Combine(location, "New", fileName);
+
+            using (var writer = new BinaryWriter(stream))
+            {
+                writer.Write(Magic); // RBX
+                writer.Write(Unknown1);
+                writer.Write(Unknown2);
+                writer.Write(Unknown3);
+
+                writer.Write(HeaderOffset);
+                writer.Write(Unknown4);
+                writer.Write(ReferenceOffset);
+                writer.Write(BodyOffset);
+
+                var entityCount = (ReferenceOffset - HeaderOffset - 8) / 8;
+
+                var referenceCount = (BodyOffset - ReferenceOffset) / 12;
+
+
+                writer.BaseStream.Position = HeaderOffset;
+
+                writer.Write(Unknown5);
+                writer.Write(EntityCount);
+                writer.Write(Unknown6);
+
+
+                for (int i = 0; i < entityCount; i++)
+                {
+                    var entity = Entities[i];
+
+                    writer.Write(entity.Key);
+                    writer.Write(entity.ReferenceIndex);
+                    writer.Write(entity.Unknown1);
+                }
+
+                writer.BaseStream.Position = ReferenceOffset;
+
+                for (int i = 0; i < referenceCount; i++)
+                {
+                    var reference = References[i];
+                    reference.Offset = indexToOffset[reference.OffsetIndex];
+
+                    writer.Write(reference.Unknown0);
+                    writer.Write(reference.Offset);
+                    writer.Write(reference.Flag);
+                }
+
+                writer.BaseStream.Position = BodyOffset;
+
+                writer.Write(rawText);
+            }
+        }
+
+        public class Entity
+        {
+            [XmlAttribute("Key")]
+            public string KeyHex
+            {
+                get { return Key.ToString("X8"); }
+                set { Key = int.Parse(value, NumberStyles.HexNumber); }
+            }
+            [XmlIgnore]
+            public int Key { get; set; }
+
+
+            [XmlAttribute]
+            public short ReferenceIndex { get; set; }
+            [XmlAttribute]
+            public short Unknown1 { get; set; }
+
+
+            public override string ToString()
+            {
+                return string.Format("Key: {0:X6} {1:X4} #{2,-4}", Key, Unknown1, ReferenceIndex);
+            }
+        }
+
+        public class Reference
+        {
+            [XmlAttribute]
+            public int Unknown0 { get; set; }
+            [XmlIgnore]
+            public int Offset { get; set; }
+
+            [XmlAttribute]
+            public int OffsetIndex { get; set; }
+            [XmlAttribute("Flag")]
+            public string FlagHex
+            {
+                get { return Flag.ToString("X8"); }
+                set { Flag = int.Parse(value, NumberStyles.HexNumber); }
+            }
+            [XmlIgnore]
+            public int Flag { get; set; }
+
+            public override string ToString()
+            {
+                return string.Format("?:{0:X8} ?:{1:X8} @{2,-8} - {3}", Unknown0, Flag, Offset, Text);
+            }
+
+            [XmlIgnore]
+            public string Text { get; set; }
+        }
+
+        public class OlangText
+        {
+            [XmlAttribute]
+            public string Text { get; set; }
+        }
+
+
+
     }
 
-
-    public class Temp
+    public static class OlangUtility
     {
-        private static void DumpLang(string path)
+        public static void ReplaceText(string sourcePath, string location)
+        {
+            var workbook = Workbook.Load(sourcePath);
+            var sheetMap = workbook.Worksheets.ToDictionary(x => x.Name, x => GetTextList(x));
+
+
+            var files = Directory.GetFiles(location, "*.olang");
+
+            foreach (var file in files)
+            {
+                var olang = OlangFile.Read(file);
+                var key = Path.GetFileNameWithoutExtension(file);
+
+
+                var korean = sheetMap[key];
+
+                for (var i = 0; i < olang.TextList.Count; i++)
+                {
+                    olang.TextList[i].Text = korean[i];
+                }
+
+                olang.Write(file);
+            }
+        }
+
+        private static List<string> GetTextList(Worksheet sheet)
+        {
+            return sheet.Rows.Skip(1).Select(x => GetText(x)).ToList();
+        }
+
+        private static string GetText(WorksheetRow row)
+        {
+            var cellValue = row.Cells[2].Value;
+            if (cellValue == null)
+            {
+                return GetText(row.Cells[1].Value);
+            }
+            return GetText(cellValue);
+        }
+
+        private static string GetText(object cellValue)
+        {
+            if (cellValue is string)
+            {
+                return cellValue as string;
+            }
+            else if (cellValue is FormattedString)
+            {
+                var text = (cellValue as FormattedString).UnformattedString;
+
+                return text;
+            }
+            else
+            {
+                return cellValue.ToString();
+            }
+        }
+
+        public static void DumpLang(string path)
         {
             var raw = File.ReadAllBytes(path);
 
@@ -277,49 +482,6 @@ namespace PeaceWalkerTools.Olang
                 File.WriteAllBytes(output, item.Value);
             }
         }
-    }
-
-    public class Entity
-    {
-        [XmlAttribute]
-        public int Key { get; set; }
-        [XmlAttribute]
-        public short ReferenceIndex { get; set; }
-        [XmlAttribute]
-        public short Unknown1 { get; set; }
-
-
-        public override string ToString()
-        {
-            return string.Format("Key: {0:X6} {1:X4} #{2,-4}", Key, Unknown1, ReferenceIndex);
-        }
-    }
-
-    public class Reference
-    {
-        [XmlAttribute]
-        public int Unknown0 { get; set; }
-        [XmlIgnore]
-        public int Offset { get; set; }
-
-        [XmlAttribute]
-        public int OffsetIndex { get; set; }
-        [XmlAttribute]
-        public int Unknown1 { get; set; }
-
-        public override string ToString()
-        {
-            return string.Format("?:{0:X8} ?:{1:X8} @{2,-8} - {3}", Unknown0, Unknown1, Offset, Text);
-        }
-
-        [XmlIgnore]
-        public string Text { get; set; }
-    }
-
-    public class OlangText
-    {
-        [XmlAttribute]
-        public string Text { get; set; }
     }
 
 

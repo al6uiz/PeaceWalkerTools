@@ -9,13 +9,13 @@ namespace PeaceWalkerTools
 
         public static void ExtractSimplePDTs()
         {
-            var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
+            var location = @"E:\Peace Walker\PSP_GAME\USRDIR";
 
             var files = new string[] { "VOICEBF.PDT", "VOICEPS.PDT", "VOICERT.PDT" };
 
             foreach (var file in files)
             {
-                //ExtractPDT(location, file);
+                ExtractSimplePDT(location, file);
             }
         }
 
@@ -26,7 +26,7 @@ namespace PeaceWalkerTools
             using (var fs = File.OpenRead(Path.Combine(location, file)))
             {
                 var key = fs.ReadByte();
-
+                var skip = 0;
                 using (var ws = File.Create(Path.Combine(location, file + ".dec")))
                 {
                     while (fs.Length > fs.Position)
@@ -35,9 +35,12 @@ namespace PeaceWalkerTools
                         fs.Read(buffer, 0, count);
                         for (int i = 0; i < count; i++)
                         {
-                            buffer[i] = (byte)(buffer[i] ^ key);
+                            if (skip++ >= 16)
+                            {
+                                buffer[i] = (byte)(buffer[i] ^ key);
+                            }
                         }
-                        ws.WriteAsync(buffer, 0, count);
+                        ws.Write(buffer, 0, count);
                     }
                 }
             }

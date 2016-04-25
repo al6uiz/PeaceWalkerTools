@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Infragistics.Documents.Excel;
+using PeaceWalkerTools.Olang;
 
 namespace PeaceWalkerTools
 {
@@ -11,7 +14,77 @@ namespace PeaceWalkerTools
     {
         static void Main(string[] args)
         {
-            Slot.Read(@"E:\Peace Walker\PSP_GAME\USRDIR");
+            var raw = File.ReadAllBytes(@"SLOT\105C6000_CB373CB9.bin");
+            using (var reader = new BinaryReader(new MemoryStream(raw)))
+            {
+                reader.BaseStream.Position = 0x24;
+
+                var hash0 = reader.ReadInt32();
+                var hash1 = reader.ReadInt32();
+                var hash2 = reader.ReadInt32();
+
+                var hash = new Hash(hash0, hash1, hash2);
+
+                DecryptionUtility.Decrypt(raw, 0x30, 2048, ref hash);
+
+                File.WriteAllBytes("slot_test.bin", raw);
+
+            }
+
+
+
+            //using (var fs = File.OpenRead(@"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\_Extracted\291_54242D62.gcx"))
+            //{
+            //    var set = Briefing.ReadBriefingTitles(fs);
+            //}
+            //SaveSlotOlangExcel();
+                ReplaceSlotOlang();
+            //foreach (var olang in Directory.GetFiles("SLOT_", "*.olang"))
+            //{
+            //    var olf = OlangFile.Read(olang);
+            //    SerializationHelper.Save(olf, olang + ".xml");
+            //}
+
+            //SimplePDT.ExtractSimplePDTs();
+            //Slot.Read(@"E:\Peace Walker\PSP_GAME\USRDIR");
+            Slot.Write(@"E:\Peace Walker\PSP_GAME\USRDIR");
+
+            //foreach (var pdt in Directory.GetFiles(@"E:\Games\Emulators\PSP\memstick\PSP\SAVEDATA\NPJH50045DLC", "*.pdt"))
+            //{
+            //    var raw = File.ReadAllBytes(pdt);
+            //    var key = raw[0];
+            //    for (int i = 0; i < raw.Length; i++)
+            //    {
+            //        raw[i] ^= key;
+            //    }
+
+            //    File.WriteAllBytes(pdt + ".dec", raw);
+            //}
+
+            return;
+
+            ReplaceYPK();
+
+            ReplaceOlang();
+
+            foreach (var dar in Directory.GetFiles("Extracted", "*.dar.inf"))
+            {
+                DAR.Pack(dar);
+            }
+
+
+            Repack();
+            return;
+
+            //OlangUtility.ReplaceText("Olang.xlsx", @".\olang");
+
+
+
+            //foreach (var item in Directory.GetFiles(@".\Extracted", "*.dar.inf"))
+            //{
+            //    DAR.Pack(item);
+            //}
+            //Slot.Read(@"E:\Peace Walker\PSP_GAME\USRDIR");
 
 
             return;
@@ -64,6 +137,268 @@ namespace PeaceWalkerTools
                     }
                 }
             }
+        }
+        private static string GetText(object cellValue)
+        {
+            if (cellValue == null)
+            {
+                return null;
+            }
+            if (cellValue is string)
+            {
+                return cellValue as string;
+            }
+            else if (cellValue is FormattedString)
+            {
+                var value = (cellValue as FormattedString).ToString();
+
+                return value;
+            }
+            else if (cellValue is double)
+            {
+                return ((double)cellValue).ToString();
+            }
+            else
+            {
+                return null;
+            }
+        }
+        private static void ReplaceSlotOlang()
+        {
+            var workbook = Workbook.Load("SlotOlang.xlsx");
+
+            var map = workbook.Worksheets.ToDictionary(x => x.Name, x => x.Rows.Skip(1).OrderBy(y => (double)(y.Cells[0].Value)).Select(y => GetText(y.Cells[3].Value)).ToList());
+
+            var binMap = Directory.GetFiles("SLOT", "*.bin.xml");
+
+            foreach (var item in binMap)
+            {
+                var slotOlangs = SerializationHelper<SlotOlang[]>.Read(item);
+
+                foreach (var slotOlang in slotOlangs)
+                {
+                    var slotFile = Path.Combine("SLOT", Path.GetFileNameWithoutExtension(item));
+
+
+
+                    var olangFile = Path.Combine("SLOT", slotOlang.Name);
+                    var olang = OlangFile.Read(olangFile);
+                    var key = Path.GetFileNameWithoutExtension(slotOlang.Name);
+
+                    List<string> texts;
+                    if (map.TryGetValue(key, out texts))
+                    {
+                        if (texts.TrueForAll(x => x == null))
+                        {
+                            continue;
+                        }
+                        Debug.Assert(olang.TextList.Count == texts.Count);
+
+                        for (int i = 0; i < texts.Count; i++)
+                        {
+                            if (!string.IsNullOrEmpty(texts[i]))
+                            {
+                                olang.TextList[i].Text = texts[i];
+                            }
+
+                        }
+
+
+                        byte[] rawOlang = null;
+                        using (var ms = new MemoryStream())
+                        {
+                            olang.Write(ms);
+
+                            rawOlang = ms.ToArray();
+                        }
+
+                        if (slotOlang.Length >= rawOlang.Length)
+                        {
+                            Array.Resize(ref rawOlang, slotOlang.Length);
+
+                            using (var fs = File.OpenWrite(slotFile))
+                            {
+                                fs.Position = slotOlang.Offset;
+                                fs.Write(rawOlang, 0, rawOlang.Length);
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine(slotOlang.Name);
+                        }
+                    }
+                }
+
+            }
+
+        }
+
+        private static void ReplaceOlang()
+        {
+            OlangUtility.ReplaceText("Olang.xlsx", @"Olang\New");
+
+
+            var map = Directory.GetFiles(@"Olang\New").ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
+
+            foreach (var olang in Directory.GetFiles("Extracted", "*.olang", SearchOption.AllDirectories))
+            {
+                var key = Path.GetFileNameWithoutExtension(olang);
+                if (key == "lang_stagetelop")
+                { }
+                byte[] data;
+                if (map.TryGetValue(key, out data))
+                {
+                    File.WriteAllBytes(olang, data);
+                }
+                else
+                { }
+            }
+        }
+
+        private static void ReplaceYPK()
+        {
+            YpkUtility.ReplaceText("ypk.xlsx", @"YPK\New");
+
+
+            var mapYpk = Directory.GetFiles(@"YPK\New").ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
+
+            foreach (var ypk in Directory.GetFiles("Extracted", "*.ypk", SearchOption.AllDirectories))
+            {
+                var key = Path.GetFileNameWithoutExtension(ypk);
+                byte[] data;
+                if (mapYpk.TryGetValue(key, out data))
+                {
+                    File.WriteAllBytes(ypk, data);
+                }
+            }
+        }
+
+        public class YpkUtility
+        {
+            public static void ExportToExcel()
+            {
+                var workbook = new Workbook(WorkbookFormat.Excel2007);
+                foreach (var path in Directory.GetFiles("ypk", "*.ypk"))
+                {
+                    var location = Path.GetDirectoryName(path);
+                    var sheet = workbook.Worksheets.Add(Path.GetFileNameWithoutExtension(path));
+
+                    var ypk = YPK.Read(path);
+
+                    var index = 0;
+                    var rowIndex = 1;
+
+                    sheet.Rows[0].Cells[0].Value = "Index";
+                    sheet.Rows[0].Cells[1].Value = "SyncStart";
+                    sheet.Rows[0].Cells[2].Value = "SyncEnd";
+                    sheet.Rows[0].Cells[3].Value = "Unknown";
+                    sheet.Rows[0].Cells[4].Value = "Japanese";
+                    sheet.Rows[0].Cells[5].Value = "Korean";
+
+                    sheet.Columns[4].SetWidth(420, WorksheetColumnWidthUnit.Pixel);
+                    sheet.Columns[5].SetWidth(420, WorksheetColumnWidthUnit.Pixel);
+
+                    foreach (var entity in ypk.Entities)
+                    {
+                        foreach (var line in entity.Lines)
+                        {
+                            var row = sheet.Rows[rowIndex++];
+                            row.Cells[0].Value = index;
+                            row.Cells[1].Value = line.SyncStart;
+                            row.Cells[2].Value = line.SyncEnd;
+                            row.Cells[3].Value = line.Unknown;
+                            row.Cells[4].Value = line.Text;
+                        }
+
+                        index++;
+                    }
+                    //var fileName = Path.GetFileName(path);
+                    //var export = Path.Combine(location, "xml", string.Format("{0}.xml", fileName));
+                    //SerializationHelper.Save(ypk, export);
+
+                    //ypk = SerializationHelper<YPK>.Read(export);
+                    //ypk.Write(Path.Combine(location, "New", fileName));
+
+
+                }
+                workbook.Save("ypk.xlsx");
+            }
+
+            public static void ReplaceText(string sourcePath, string location)
+            {
+                var workbook = Workbook.Load(sourcePath);
+
+                var sheetMap = workbook.Worksheets.ToDictionary(x => x.Name, x => GetTextList(x));
+
+                var files = Directory.GetFiles(location, "*.ypk");
+
+                foreach (var file in files)
+                {
+                    var olang = YPK.Read(file);
+                    var korean = sheetMap[Path.GetFileNameWithoutExtension(file)];
+
+                    var list = olang.Entities.SelectMany(x => x.Lines).ToList();
+
+                    if (korean.Count != list.Count)
+                    {
+                    }
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(korean[i]))
+                        {
+                            list[i].Text = korean[i];
+                        }
+                    }
+
+
+                    olang.Write(file);
+                }
+            }
+
+
+            private static string GetText(WorksheetRow row)
+            {
+                var cellValue = row.Cells[5].Value;
+
+                return GetText(cellValue);
+            }
+
+            private static string GetText(object cellValue)
+            {
+                if (cellValue == null)
+                {
+                    return null;
+                }
+                if (cellValue is string)
+                {
+                    return cellValue as string;
+                }
+                else if (cellValue is FormattedString)
+                {
+                    return (cellValue as FormattedString).ToString();
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            private static List<string> GetTextList(Worksheet sheet)
+            {
+                return sheet.Rows.Skip(1).Select(x => GetText(x)).ToList();
+            }
+
+        }
+        private static void Unpack()
+        {
+            var file = StageDataFile.Read(@"E:\Peace Walker\PSP_GAME\USRDIR\STAGEDAT.PDT");
+            SerializationHelper.Save(file, "STAGEDAT.PDT.xml");
+        }
+
+        private static void Repack()
+        {
+            var file = SerializationHelper<StageDataFile>.Read("STAGEDAT.PDT.xml");
+            file.Write();
         }
 
         private static void ExtractOlang()

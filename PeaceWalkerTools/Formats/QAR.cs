@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace PeaceWalkerTools
@@ -17,7 +18,8 @@ namespace PeaceWalkerTools
             {
                 Directory.CreateDirectory(extractLocation);
             }
-            System.Diagnostics.Debug.WriteLine(path);
+
+            Debug.WriteLine(path);
 
             using (var fs = File.OpenRead(path))
             {
@@ -50,7 +52,6 @@ namespace PeaceWalkerTools
                     File.WriteAllBytes(Path.Combine(extractLocation, names[i]), fs.ReadBytes(list[i * 2 + 1]));
                     fs.Offset(128);
                 }
-
             }
         }
     }

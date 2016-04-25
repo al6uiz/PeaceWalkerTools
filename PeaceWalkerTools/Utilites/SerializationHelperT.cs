@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace PeaceWalkerTools
@@ -20,7 +22,7 @@ namespace PeaceWalkerTools
         {
             try
             {
-                _serializer = new XmlSerializer(typeof(T));
+                _serializer = new XmlSerializer(typeof(T));                
             }
             catch
             {
@@ -30,7 +32,7 @@ namespace PeaceWalkerTools
 
         public static T Read(string fileName)
         {
-            using (TextReader reader = File.OpenText(fileName))
+            using (var reader = XmlReader.Create(File.OpenText(fileName)))
             {
                 return _serializer.Deserialize(reader) as T;
             }
@@ -89,7 +91,7 @@ namespace PeaceWalkerTools
             }
 
 
-            using (var writer = new StreamWriter(fileName))
+            using (var writer = new StreamWriter(fileName, false, Encoding.UTF8))
             {
                 _serializer.Serialize(writer, contents);
             }

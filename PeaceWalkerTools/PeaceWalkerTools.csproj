@@ -33,6 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Infragistics4.Documents.Excel.v13.1, Version=13.1.20131.2124, Culture=neutral, PublicKeyToken=7dd5c3163f2cd0cb, processorArchitecture=MSIL" />
+    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -49,9 +50,11 @@
   <ItemGroup>
     <Compile Include="Formats\Briefing.cs" />
     <Compile Include="Formats\DAR.cs" />
+    <Compile Include="Formats\YPK.cs" />
+    <Compile Include="Utilites\DecryptionUtility.cs" />
     <Compile Include="Formats\Slot.cs" />
     <Compile Include="Misc.cs" />
-    <Compile Include="SerializationHelperT.cs" />
+    <Compile Include="Utilites\SerializationHelperT.cs" />
     <Compile Include="Utilites\ExcelUtility.cs" />
     <Compile Include="Utilites\Extensions.cs" />
     <Compile Include="Formats\Olang.cs" />

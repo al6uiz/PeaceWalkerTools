@@ -8,8 +8,6 @@ using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools
 {
-
-
     class Briefing
     {
         public static void UnpackBriefing2()
@@ -228,7 +226,7 @@ namespace PeaceWalkerTools
             return koreanSet;
         }
 
-        private static BriefingSet ReadBriefing(Stream fs)
+        public static BriefingSet ReadBriefing(Stream fs)
         {
             var set = new BriefingSet();
 
@@ -275,12 +273,108 @@ namespace PeaceWalkerTools
             return set;
         }
 
+        public static BriefingTitleSet ReadBriefingTitles(Stream fs)
+        {
+            fs.Position = 16;
+            var first = new List<int>();
+            while (true)
+            {
+                var re = fs.ReadInt32();
 
+                if (re == -1)
+                { break; }
+                else
+                {
+                    first.Add(re);
+                }
+            }
+            var set = new BriefingTitleSet();
+
+            set.Offset = (int)fs.Position;
+
+            //fs.Position = set.Offset + 8;
+
+            var length = fs.ReadInt32(); // 전체 길이는 start + 8 + 4 + length
+
+            var unknown1 = fs.ReadInt32(); // 0x00000014
+            var bodyOffset = fs.ReadInt32(); // 자막 시작이 start + 8 + bofyOffset
+            var unknown3 = fs.ReadInt32(); // length - 4
+            var unknown4 = fs.ReadInt32(); // 0x00000000
+
+            set.HeaderStart = (int)fs.Position;
+            set.TextSectionStart = set.Offset + bodyOffset;
+
+            while (fs.Position < set.TextSectionStart)
+            {
+                set.Entities.Add(new BriefingTitleEntry
+                {
+                    Offset = fs.ReadInt32()
+                });
+            }
+
+            var encoding = Encoding.GetEncoding(20932);
+
+            for (int i = 0; i < set.Entities.Count; i++)
+            {
+                var offset = set.Entities[i].Offset + set.TextSectionStart;
+                fs.Position = offset;
+
+                set.Entities[i].Key = fs.ReadInt32();
+                switch (set.Entities[i].Key & 0xFF)
+                {
+                    case 0x01:
+                    offset += 5;
+                    break;
+                    case 0x02:
+                    offset += 4;
+                    break;
+                    default:
+                    offset += 3;
+                    break;
+
+                }
+
+                set.Entities[i].Text = fs.ReadString(offset, encoding);
+            }
+
+            if (set.Entities.Count > 0)
+            {
+                var last = set.Entities.Last();
+
+                set.TextSectionLength = last.Offset + encoding.GetByteCount(last.Text) + 1;
+            }
+
+            fs.Position = set.Offset + 8 + 4 + length;
+
+            var infoLength = fs.ReadInt32();
+
+            fs.Position = fs.Position + infoLength;
+
+            return set;
+        }
     }
 
 
 
 
+    class BriefingTitleSet
+    {
+        public int Offset { get; set; }
+
+        public int TextSectionStart { get; set; }
+        public int TextSectionLength { get; set; }
+
+        public string Name { get; set; }
+
+        public BriefingTitleSet()
+        {
+            Entities = new List<BriefingTitleEntry>();
+        }
+        public List<BriefingTitleEntry> Entities { get; set; }
+
+
+        public int HeaderStart { get; set; }
+    }
 
     class BriefingSet
     {
@@ -301,8 +395,24 @@ namespace PeaceWalkerTools
         public int HeaderStart { get; set; }
     }
 
+    class BriefingTitleEntry
+    {
+        public override string ToString()
+        {
+            return string.Format("@{0} - [{1:X4}] {2}", Offset, Key, Text);
+        }
+
+        public int Offset { get; set; }
+        public int Key { get; set; }
+        public string Text { get; set; }
+    }
     class BriefingEntry
     {
+        public override string ToString()
+        {
+            return string.Format("@{0} - {1}", Offset, Text);
+        }
+
         public int Offset { get; set; }
         public string Text { get; set; }
     }

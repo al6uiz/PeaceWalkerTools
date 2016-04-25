@@ -12,6 +12,7 @@ namespace PeaceWalkerTools
             var files = File.ReadAllLines(path).Where(x => x.Trim().Length > 0).ToList();
             var location = Path.GetDirectoryName(path);
 
+
             var outputPath = Path.Combine(location, Path.GetFileNameWithoutExtension(path));
 
 

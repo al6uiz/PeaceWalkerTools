@@ -1,11 +1,12 @@
-﻿using Ionic.Zlib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Xml.Serialization;
+using Ionic.Zlib;
+using PeaceWalkerTools.Olang;
 
 namespace PeaceWalkerTools
 {
@@ -14,22 +15,28 @@ namespace PeaceWalkerTools
         public static void Read(string location)
         {
             var keyPath = Path.Combine(location, "SLOT.KEY");
-            var dataPath = Path.Combine(location, "SLOT.DAT");
+            var dataPath = Path.Combine(location, "SLOT.DAT.original");
+
+
+            Hash hash;
+            byte[] keys;
 
             using (var reader = new BinaryReader(File.OpenRead(keyPath)))
-            using (var dataReader = new BinaryReader(File.OpenRead(dataPath)))
             {
                 var hash0 = reader.ReadInt32();
                 var hash1 = reader.ReadInt32();
                 var hash2 = reader.ReadInt32();
 
-                var keys = reader.ReadBytes((int)reader.BaseStream.Length - 12);
+                keys = reader.ReadBytes((int)reader.BaseStream.Length - 12);
+                hash = new Hash(hash0, hash1, hash2);
+            }
 
-                var hash = new Hash(hash0, hash1, hash2);
 
-                var keyReader = new BinaryReader(new MemoryStream(keys));
+            var lastEnd = 0u;
 
-                var lastEnd = 0u;
+            using (var keyReader = new BinaryReader(new MemoryStream(keys)))
+            using (var dataReader = new BinaryReader(File.OpenRead(dataPath)))
+            {
                 while (keyReader.BaseStream.Position < keyReader.BaseStream.Length)
                 {
                     var rawStart = keyReader.ReadUInt32();
@@ -38,10 +45,6 @@ namespace PeaceWalkerTools
                     var start = (0x000FFFFF & rawStart) << 0xB;
                     var end = (0x000FFFFF & rawEnd) << 0xB;
 
-                    if (lastEnd > 0 & lastEnd != start)
-                    {
-
-                    }
                     lastEnd = end;
 
                     Debug.WriteLine(string.Format("{0:X3} {1:X3} ", rawStart >> 20, rawEnd >> 20));
@@ -58,32 +61,202 @@ namespace PeaceWalkerTools
                     var hashCopy = hash;
 
                     DecryptionUtility.Decrypt(raw, ref hashCopy);
+                    var unknown1 = BitConverter.ToInt32(raw, 0);
+                    var unknown2 = BitConverter.ToInt32(raw, 4);
+
+                    if (unknown1 != 0x00100004)
+                    {
+
+                    }
+                    else if (unknown2 != 0)
+                    {
+                    }
+
+                    var compressedSize = BitConverter.ToInt32(raw, 8);
+                    var uncompressedSize = BitConverter.ToInt32(raw, 12);
+
+                    File.WriteAllBytes(string.Format(@"SLOT\{0:X8}_{1:X8}.dec", start, itemHash), raw);
 
 
-                    var t1 = BitConverter.ToInt32(raw, 0);
-                    var t2 = BitConverter.ToInt32(raw, 4);
-                    var t3 = BitConverter.ToInt32(raw, 8);
-                    var t4 = BitConverter.ToInt32(raw, 12);
+                    var data = new byte[compressedSize];
+                    Buffer.BlockCopy(raw, 16, data, 0, compressedSize);
 
-                    //var data = new byte[raw.Length - 16];
-                    //Buffer.BlockCopy(raw, 16, data, 0, data.Length);
-                    //File.WriteAllBytes(string.Format("{0:X8}.bin", start), raw);
 
-                    //var uc = ZlibStream.UncompressBuffer(data);
+                    var uncompressed = ZlibStream.UncompressBuffer(data);
 
-                    //var t5 = BitConverter.ToInt32(uc, 0);
-                    //File.WriteAllBytes(string.Format(@"SLOT\{0:X8}_{1:X8}.bin", start, itemHash), uc);
+                    var t5 = BitConverter.ToInt32(uncompressed, 0);
+                    var output = string.Format(@"SLOT\{0:X8}_{1:X8}.bin", start, itemHash);
+                    File.WriteAllBytes(output, uncompressed);
 
-                    //Console.WriteLine("{0:X8} {1:X8} {2:X8} {3:X8} {4:X8} {5:X8}", itemHash, t1, t2, t3, t4, t5);
+                    DumpRBX(uncompressed, output);
+
+                    Console.WriteLine("{0:X8} {1:X8} {2:X8} {3:X8} {4:X8} {5:X8}", itemHash, unknown1, unknown2, compressedSize, uncompressedSize, t5);
                 }
-                //var a0 = 0x0220450b;
-                //var a1 = 0x08c31208;
-                //var address = DoSometing(keys, a0, a1);
-
-                //a0 = a1;
 
             }
 
+        }
+
+
+        public static void Write(string location)
+        {
+            var keyPath = Path.Combine(location, "SLOT.KEY");
+            var dataPath = Path.Combine(location, "SLOT.DAT");
+            File.Copy(Path.Combine(location, "SLOT.DAT.original"), Path.Combine(location, "SLOT.DAT"), true);
+
+            Hash hash;
+            byte[] rawKeys;
+
+            using (var reader = new BinaryReader(File.OpenRead(keyPath)))
+            {
+                var hash0 = reader.ReadInt32();
+                var hash1 = reader.ReadInt32();
+                var hash2 = reader.ReadInt32();
+
+                rawKeys = reader.ReadBytes((int)reader.BaseStream.Length - 12);
+                hash = new Hash(hash0, hash1, hash2);
+            }
+
+            var olangMap = new HashSet<string>(Directory.GetFiles("SLOT", "*.bin.xml").Select(x => Path.GetFileNameWithoutExtension(x)));
+            var items = new List<SlotItem>();
+
+            using (var keyReader = new BinaryReader(new MemoryStream(rawKeys)))
+            {
+                while (keyReader.BaseStream.Position < keyReader.BaseStream.Length)
+                {
+                    var rawStart = keyReader.ReadUInt32();
+                    var rawEnd = keyReader.ReadUInt32();
+
+                    var start = (0x000FFFFF & rawStart) << 0xB;
+                    var end = (0x000FFFFF & rawEnd) << 0xB;
+
+                    items.Add(new SlotItem
+                    {
+                        Start = start,
+                        End = end,
+                        Hash = keyReader.ReadInt32()
+                    });
+                }
+            }
+
+            var current = 0;
+            using (var writer = new BinaryWriter(File.OpenWrite(dataPath)))
+            {
+                foreach (var item in items)
+                {
+
+                    current++;
+                    var sourcePath = string.Format(@"SLOT\{0:X8}_{1:X8}.bin", item.Start, item.Hash);
+                    if (!olangMap.Contains(Path.GetFileName(sourcePath)))
+                    {
+                        continue;
+                    }
+                    Debug.WriteLine(string.Format("Process {0:X8} ({1}/{2})", item.Start, current, items.Count));
+
+                    var data = File.ReadAllBytes(sourcePath);
+
+                    byte[] compressed;
+                    if (Compress(data, (int)item.Length - 16, out compressed) == false)
+                    {
+                        Debug.WriteLine("Failed to compress!");
+                        continue;
+                    }
+
+                    var raw = new byte[item.Length];
+
+                    using (var rawWriter = new BinaryWriter(new MemoryStream(raw)))
+                    {
+                        rawWriter.Write(0x00100004);
+                        rawWriter.Write(0x00000000);
+                        rawWriter.Write(compressed.Length);
+                        rawWriter.Write(data.Length);
+
+                        rawWriter.Write(compressed);
+                        rawWriter.Flush();
+                    }
+
+                    var hashCopy = hash;
+                    DecryptionUtility.Decrypt(raw, ref hashCopy);
+                    writer.BaseStream.Position = item.Start;
+                    writer.Write(raw);
+                }
+            }
+
+        }
+
+        private static bool Compress(byte[] data, int max, out byte[] compressed)
+        {
+            compressed = null;
+
+            var level = CompressionLevel.Level4;
+
+        ReTry:
+            using (var tempMemoryStream = new MemoryStream())
+            {
+                using (var zipStream = new ZlibStream(tempMemoryStream, CompressionMode.Compress, level))
+                {
+                    zipStream.Write(data, 0, data.Length);
+                }
+                compressed = tempMemoryStream.ToArray();
+            }
+
+            if (compressed.Length > max)
+            {
+                if (level == CompressionLevel.BestCompression)
+                {
+                    return false;
+                }
+
+                level = (CompressionLevel)(level + 1);
+                Debug.WriteLine(string.Format("- Retry {0}", level));
+
+                goto ReTry;
+            }
+
+            return true;
+        }
+
+        private static void DumpRBX(byte[] data, string path)
+        {
+            var list = new List<SlotOlang>();
+            var count = 0;
+            for (int i = 0; i < data.Length - 4; i++)
+            {
+                if (data[i] == 'R' && data[i + 1] == 'B' && data[i + 2] == 'X' && data[i + 3] == 0)
+                {
+                    var size = data.Length - i;
+                    var raw = new byte[size];
+                    Buffer.BlockCopy(data, i, raw, 0, raw.Length);
+
+                    var olang = OlangFile.Read(new MemoryStream(raw));
+
+                    string exportPath = null;
+                    if (count == 0)
+                    {
+                        exportPath = path + ".olang";
+                    }
+                    else
+                    {
+                        exportPath = string.Format("{0}_{1}.olang", path, count);
+                    }
+
+                    olang.Write(exportPath);
+
+                    list.Add(new SlotOlang
+                    {
+                        Length = (int)new FileInfo(exportPath).Length,
+                        Offset = i,
+                        Name = Path.GetFileName(exportPath)
+                    });
+                    count++;
+
+                }
+            }
+
+            if (list.Count > 0)
+            {
+                SerializationHelper.Save(list, path + ".xml");
+            }
         }
 
         private static int DoSometing(byte[] keys, int a0, int a1)
@@ -165,9 +338,12 @@ namespace PeaceWalkerTools
         }
     }
 
-    class SlotKey
+    class SlotItem
     {
-
+        public uint Start { get; set; }
+        public uint Length { get { return End - Start; } }
+        public uint End { get; set; }
+        public int Hash { get; set; }
     }
 
     public static class MipsOp
@@ -221,5 +397,16 @@ namespace PeaceWalkerTools
             0xffffffff,
 
         };
+    }
+
+    public class SlotOlang
+    {
+        [XmlAttribute]
+        public string Name { get; set; }
+        [XmlAttribute]
+        public int Offset { get; set; }
+        [XmlAttribute]
+        public int Length { get; set; }
+
     }
 }
