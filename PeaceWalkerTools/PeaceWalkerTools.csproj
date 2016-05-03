@@ -51,6 +51,8 @@
   <ItemGroup>
     <Compile Include="Formats\Briefing.cs" />
     <Compile Include="Formats\DAR.cs" />
+    <Compile Include="ImageUtility.cs" />
+    <Compile Include="TiledPixelImage.Temp.cs" />
     <Compile Include="Utilites\ExtensionUtility.cs" />
     <Compile Include="Utilites\FileUtility.cs" />
     <Compile Include="TiledPixelImage.cs" />

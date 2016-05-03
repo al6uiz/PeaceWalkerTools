@@ -15,6 +15,28 @@ namespace PeaceWalkerTools
     {
         private static void Test()
         {
+            var e = @"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\_Extracted\535_C9D05E75_qar\tgs_epigraph.txp";
+            TXP.Unpack(e);
+
+            return;
+            //foreach (var file in Directory.GetFiles(@"_Extracted", "*.txp", SearchOption.AllDirectories))
+            //{
+            //    try
+            //    {
+            //        TXP.Unpack(file);
+            //    }
+            //    catch { }
+
+            //}
+
+
+            //foreach (var file in Directory.GetFiles(@"SLOT\txp").Reverse())
+            //{
+            //    TXP.Unpack(file);
+            //}
+            //return;
+
+
             //SlotData.Unpack(Settings.SourceUserFolder);
 
             //foreach (var file in Directory.GetFiles("SLOT", "*.slot"))
@@ -37,7 +59,7 @@ namespace PeaceWalkerTools
             {
                 DAR.Pack(dar);
             }
-            
+
 
             PackStage();
         }
