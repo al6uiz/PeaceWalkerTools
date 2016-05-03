@@ -15,8 +15,8 @@ namespace PeaceWalkerTools
 
             var outputPath = Path.Combine(location, Path.GetFileNameWithoutExtension(path));
 
-
-            using (var fs = new BinaryWriter(File.Create(outputPath), Encoding.ASCII))
+            using (var ms = new MemoryStream())
+            using (var fs = new BinaryWriter(ms, Encoding.ASCII))
             {
                 fs.Write(files.Count);
 
@@ -41,6 +41,8 @@ namespace PeaceWalkerTools
                     fs.Write(data, 0, data.Length);
                     fs.Write((byte)0x00);
                 }
+
+                File.WriteAllBytes(outputPath, ms.ToArray());
             }
 
         }

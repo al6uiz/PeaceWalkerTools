@@ -9,6 +9,19 @@ namespace PeaceWalkerTools
 {
     public static class Extensions
     {
+        public static string RemoveExtension(this string path, int count)
+        {
+            var location = Path.GetDirectoryName(path);
+            var fileName = Path.GetFileName(path);
+
+            for (int i = 0; i < count; i++)
+            {
+                fileName = Path.GetFileNameWithoutExtension(fileName);
+            }
+
+            return Path.Combine(location, fileName);
+        }
+
         public static bool Find(this byte[] data, string text, int start)
         {
             for (int i = 0; i < text.Length; i++)

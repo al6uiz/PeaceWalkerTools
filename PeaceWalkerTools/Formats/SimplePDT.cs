@@ -9,13 +9,12 @@ namespace PeaceWalkerTools
 
         public static void ExtractSimplePDTs()
         {
-            var location = @"E:\Peace Walker\PSP_GAME\USRDIR";
 
             var files = new string[] { "VOICEBF.PDT", "VOICEPS.PDT", "VOICERT.PDT" };
 
             foreach (var file in files)
             {
-                ExtractSimplePDT(location, file);
+                ExtractSimplePDT(Settings.SourceUserFolder, file);
             }
         }
 

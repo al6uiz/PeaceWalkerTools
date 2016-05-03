@@ -2,17 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Xml.Serialization;
 using Ionic.Zlib;
-using PeaceWalkerTools.Olang;
 
 namespace PeaceWalkerTools
 {
-    class Slot
+    class SlotData
     {
-        public static void Read(string location)
+        public static void Unpack(string location)
         {
             var keyPath = Path.Combine(location, "SLOT.KEY");
             var dataPath = Path.Combine(location, "SLOT.DAT.original");
@@ -47,6 +43,9 @@ namespace PeaceWalkerTools
 
                     lastEnd = end;
 
+                    var remStart = rawStart >> 20;
+                    var remEnd = rawEnd >> 20;
+
                     Debug.WriteLine(string.Format("{0:X3} {1:X3} ", rawStart >> 20, rawEnd >> 20));
 
                     var itemHash = keyReader.ReadInt32();
@@ -75,9 +74,6 @@ namespace PeaceWalkerTools
                     var compressedSize = BitConverter.ToInt32(raw, 8);
                     var uncompressedSize = BitConverter.ToInt32(raw, 12);
 
-                    File.WriteAllBytes(string.Format(@"SLOT\{0:X8}_{1:X8}.dec", start, itemHash), raw);
-
-
                     var data = new byte[compressedSize];
                     Buffer.BlockCopy(raw, 16, data, 0, compressedSize);
 
@@ -85,23 +81,24 @@ namespace PeaceWalkerTools
                     var uncompressed = ZlibStream.UncompressBuffer(data);
 
                     var t5 = BitConverter.ToInt32(uncompressed, 0);
-                    var output = string.Format(@"SLOT\{0:X8}_{1:X8}.bin", start, itemHash);
-                    File.WriteAllBytes(output, uncompressed);
+                    var output = string.Format(@"SLOT\{0:X8}_{1:X8}.slot", start, itemHash);
 
-                    DumpRBX(uncompressed, output);
+                    if (Directory.Exists("SLOT") == false)
+                    {
+                        Directory.CreateDirectory("SLOT");
+                    }
+                    File.WriteAllBytes(output, uncompressed);
 
                     Console.WriteLine("{0:X8} {1:X8} {2:X8} {3:X8} {4:X8} {5:X8}", itemHash, unknown1, unknown2, compressedSize, uncompressedSize, t5);
                 }
-
             }
-
         }
 
-
-        public static void Write(string location)
+        public static void Pack(string location, string[] filter)
         {
             var keyPath = Path.Combine(location, "SLOT.KEY");
             var dataPath = Path.Combine(location, "SLOT.DAT");
+
             File.Copy(Path.Combine(location, "SLOT.DAT.original"), Path.Combine(location, "SLOT.DAT"), true);
 
             Hash hash;
@@ -117,8 +114,22 @@ namespace PeaceWalkerTools
                 hash = new Hash(hash0, hash1, hash2);
             }
 
-            var olangMap = new HashSet<string>(Directory.GetFiles("SLOT", "*.bin.xml").Select(x => Path.GetFileNameWithoutExtension(x)));
-            var items = new List<SlotItem>();
+            if (!Directory.Exists("SLOT"))
+            {
+                Directory.CreateDirectory("SLOT");
+            }
+
+            HashSet<string> filterSet;
+
+            if (filter == null)
+            {
+                filterSet = new HashSet<string>();
+            }
+            else
+            {
+                filterSet = new HashSet<string>(filter);
+            }
+            var items = new List<SlotItemInfo>();
 
             using (var keyReader = new BinaryReader(new MemoryStream(rawKeys)))
             {
@@ -130,7 +141,7 @@ namespace PeaceWalkerTools
                     var start = (0x000FFFFF & rawStart) << 0xB;
                     var end = (0x000FFFFF & rawEnd) << 0xB;
 
-                    items.Add(new SlotItem
+                    items.Add(new SlotItemInfo
                     {
                         Start = start,
                         End = end,
@@ -140,14 +151,14 @@ namespace PeaceWalkerTools
             }
 
             var current = 0;
+
             using (var writer = new BinaryWriter(File.OpenWrite(dataPath)))
             {
                 foreach (var item in items)
                 {
-
                     current++;
-                    var sourcePath = string.Format(@"SLOT\{0:X8}_{1:X8}.bin", item.Start, item.Hash);
-                    if (!olangMap.Contains(Path.GetFileName(sourcePath)))
+                    var sourcePath = string.Format(@"SLOT\{0:X8}_{1:X8}.slot", item.Start, item.Hash);
+                    if (!filterSet.Contains(sourcePath))
                     {
                         continue;
                     }
@@ -181,7 +192,6 @@ namespace PeaceWalkerTools
                     writer.Write(raw);
                 }
             }
-
         }
 
         private static bool Compress(byte[] data, int max, out byte[] compressed)
@@ -216,49 +226,17 @@ namespace PeaceWalkerTools
             return true;
         }
 
-        private static void DumpRBX(byte[] data, string path)
+        class SlotItemInfo
         {
-            var list = new List<SlotOlang>();
-            var count = 0;
-            for (int i = 0; i < data.Length - 4; i++)
-            {
-                if (data[i] == 'R' && data[i + 1] == 'B' && data[i + 2] == 'X' && data[i + 3] == 0)
-                {
-                    var size = data.Length - i;
-                    var raw = new byte[size];
-                    Buffer.BlockCopy(data, i, raw, 0, raw.Length);
-
-                    var olang = OlangFile.Read(new MemoryStream(raw));
-
-                    string exportPath = null;
-                    if (count == 0)
-                    {
-                        exportPath = path + ".olang";
-                    }
-                    else
-                    {
-                        exportPath = string.Format("{0}_{1}.olang", path, count);
-                    }
-
-                    olang.Write(exportPath);
-
-                    list.Add(new SlotOlang
-                    {
-                        Length = (int)new FileInfo(exportPath).Length,
-                        Offset = i,
-                        Name = Path.GetFileName(exportPath)
-                    });
-                    count++;
-
-                }
-            }
-
-            if (list.Count > 0)
-            {
-                SerializationHelper.Save(list, path + ".xml");
-            }
+            public uint Start { get; set; }
+            public uint Length { get { return End - Start; } }
+            public uint End { get; set; }
+            public int Hash { get; set; }
         }
+    }
 
+    class _ReverseSlot
+    { 
         private static int DoSometing(byte[] keys, int a0, int a1)
         {
             int v0 = 0;
@@ -336,77 +314,85 @@ namespace PeaceWalkerTools
 
             return -1;
         }
-    }
 
-    class SlotItem
-    {
-        public uint Start { get; set; }
-        public uint Length { get { return End - Start; } }
-        public uint End { get; set; }
-        public int Hash { get; set; }
-    }
-
-    public static class MipsOp
-    {
-        internal static int Ins(ref int rd, int rs, int p, int s)
+        public static void ProcessItem(byte[] data)
         {
+            var a0 = 0;
+            var a1 = 1;
+            var a2 = 1;
 
-            var bitMask = mask[s];
-            var originalMask = (int)~(bitMask << p);
+            var t0 = 0;
+            var t1 = 0;
+            var t2 = 0;
+            var t7 = int.MinValue;
 
-            rd = (rd & originalMask) | (int)((rs & bitMask) << p);
+            var s7 = t0;
+            var s6 = t1;
+            var s5 = t2;
+            var s4 = t2;
+            var s3 = a0;
+            var s2 = a1;
 
-            return rd;
+            var v1 = 0;
 
+            var s0 = a0 + 4;
+
+            var sp_4 = 0;
+            var sp_0 = 0;
+
+            var t6 = BitConverter.ToInt32(data, a0);
+            var v0 = t6 << 3;
+            v0 = v0 + 0x803;
+
+            MipsOP.Ins(ref v0, 0, 0, 0xb);
+            v0 = v0 + a0;
+
+            if (t6 > 0)
+            {
+                sp_0 = v0;
+                v0 = a2 & 0x1000;
+                var s1 = 0;
+                var fp = 0x7f000000;
+                sp_4 = v0;
+                var t4 = BitConverter.ToInt32(data, s0);
+
+            _0880559c:
+                v0 = t4;
+                MipsOP.Ins(ref v0, 0, 0, 0x18);
+
+                if (fp == v0)
+                {
+
+                _08805668:
+                    t7 = int.MinValue;
+                    s0 = s0 + 8;
+                    s1 = s1 + 1;
+
+                    if (s1 < t6)
+                    {
+                        t4 = BitConverter.ToInt32(data, s0);
+                        goto _0880559c;
+                    }
+                }
+                else
+                {
+                    a1 = t4 | t7;
+
+                    if (t4 == 0)
+                    {
+                        //goto _08805668;
+                    }
+                    else
+                    {
+                        v0 = s2 ^ 3;
+                        a0 = BitConverter.ToInt32(data, s0 + 4);
+                        t7 = sp_0;
+                        s0 = s0 + 8;
+                        v1 = BitConverter.ToInt32(data, s0 + 4);
+                    }
+
+                }
+            }
         }
-
-        static uint[] mask =
-        {
-            0x0,
-            0x1,
-            0x3,
-            0x7,
-            0xf,
-            0x1f,
-            0x3f,
-            0x7f,
-            0xff,
-            0x1ff,
-            0x3ff,
-            0x7ff,
-            0xfff,
-            0x1fff,
-            0x3fff,
-            0x7fff,
-            0xffff,
-            0x1ffff,
-            0x3ffff,
-            0x7ffff,
-            0xfffff,
-            0x1fffff,
-            0x3fffff,
-            0x7fffff,
-            0xffffff,
-            0x1ffffff,
-            0x3ffffff,
-            0x7ffffff,
-            0xfffffff,
-            0x1fffffff,
-            0x3fffffff,
-            0x7fffffff,
-            0xffffffff,
-
-        };
-    }
-
-    public class SlotOlang
-    {
-        [XmlAttribute]
-        public string Name { get; set; }
-        [XmlAttribute]
-        public int Offset { get; set; }
-        [XmlAttribute]
-        public int Length { get; set; }
-
     }
 }

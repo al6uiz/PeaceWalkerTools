@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -50,7 +51,15 @@
   <ItemGroup>
     <Compile Include="Formats\Briefing.cs" />
     <Compile Include="Formats\DAR.cs" />
+    <Compile Include="Utilites\ExtensionUtility.cs" />
+    <Compile Include="Utilites\FileUtility.cs" />
+    <Compile Include="TiledPixelImage.cs" />
+    <Compile Include="InitializatinFilie.cs" />
+    <Compile Include="MipsOP.cs" />
     <Compile Include="Formats\YPK.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="Utilites\SlotOlangUtility.cs" />
+    <Compile Include="SlotSubItem.cs" />
     <Compile Include="Utilites\DecryptionUtility.cs" />
     <Compile Include="Formats\Slot.cs" />
     <Compile Include="Misc.cs" />
@@ -66,11 +75,15 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilites\StructureConverter.cs" />
     <Compile Include="Formats\Loadout.cs" />
-    <Compile Include="Formats\TiledPixelReader.cs" />
+    <Compile Include="TiledPixelReader.cs" />
     <Compile Include="Formats\TXP.cs" />
+    <Compile Include="Utilites\YpkUtility.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="PeaceWalkerTools.ini">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

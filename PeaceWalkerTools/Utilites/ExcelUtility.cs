@@ -8,8 +8,39 @@ using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools
 {
-    static class ExcelUtility
+    public static class ExcelUtility
     {
+        public static string GetText(this WorksheetCell cell)
+        {
+            return GetText(cell.Value);
+        }
+        private static string GetText(object cellValue)
+        {
+            if (cellValue == null)
+            {
+                return null;
+            }
+            if (cellValue is string)
+            {
+                return cellValue as string;
+            }
+            else if (cellValue is FormattedString)
+            {
+                var value = (cellValue as FormattedString).ToString();
+
+                return value;
+            }
+            else if (cellValue is double)
+            {
+                return ((double)cellValue).ToString();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+
         private static Dictionary<string, string> SPECIAL_LETTERS = new Dictionary<string, string>
         {
             {"“","{*"},

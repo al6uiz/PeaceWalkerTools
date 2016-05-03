@@ -32,25 +32,43 @@ namespace PeaceWalkerTools
             var length = (int)(Width * Math.Ceiling(Height / 8.0) * 8);
             byte[] pixelData;
 
-            switch (Colors.Count)
-            {
-                case 0x10: length /= 2; break;
-                case 0x100: break;
+            //switch (Colors.Count)
+            //{
+            //    case 0x10:
+            //    length /= 2;
+            //    break;
+            //    case 0x100:
+            //    break;
 
-                default:
-                    break;
-            }
+            //    default:
+            //    break;
+            //}
 
             pixelData = new byte[Width * Height];
 
             var dataPerTile = 16 * 8;
-            var tilesPerRow = Math.Max(1, dataWidth / (Colors.Count == 16 ? 32 : 16));
+            var tilesPerRow = 32;
 
+            byte[] data;
+            if (Colors.Count == 16)
+            {
+                data = new byte[Data.Length * 2];
+
+                for (int i = 0; i < Data.Length; i++)
+                {
+                    data[i * 2] = (byte)(Data[i] >> 4);
+                    data[i * 2 + 1] = (byte)(Data[i] & 0xF);
+                }
+            }
+            else
+            {
+                data = Data;
+            }
             //Debug.WriteLine(string.Format("{0} * {1} * {2}", Width, Height, Colors.Count));
 
-            for (int i = 0; i < Data.Length; i++)
+            for (int i = 0; i < data.Length; i++)
             {
-                var colorIndex = Data[i];
+                var colorIndex = data[i];
                 var tileIndex = i / dataPerTile;
                 var remainder = i % dataPerTile;
                 var rowOnTile = remainder / 16;
@@ -59,8 +77,8 @@ namespace PeaceWalkerTools
                 var tileRow = tileIndex / tilesPerRow;
                 var tileColumn = tileIndex % tilesPerRow;
 
-                var x = (tileColumn * 16 + columnOnTile) * (Colors.Count == 16 ? 2 : 1);
-                var y = tileRow * 8 + rowOnTile;
+                var x = (tileColumn * 16 + columnOnTile);
+                var y = tileRow * 16 + rowOnTile;
 
                 if (x >= Width || y >= Height)
                 {
@@ -70,15 +88,15 @@ namespace PeaceWalkerTools
 
                 var pIndex = (y * Width) + x;
 
-                if (Colors.Count == 16)
-                {
-                    pixelData[pIndex] = (byte)(colorIndex & 0xF);
-                    if (pIndex + 1 < pixelData.Length)
-                    {
-                        pixelData[pIndex + 1] = (byte)(colorIndex >> 4);
-                    }
-                }
-                else
+                //if (Colors.Count == 16)
+                //{
+                //    pixelData[pIndex] = (byte)(colorIndex & 0xF);
+                //    if (pIndex + 1 < pixelData.Length)
+                //    {
+                //        pixelData[pIndex + 1] = (byte)(colorIndex >> 4);
+                //    }
+                //}
+                //else
                 {
                     pixelData[pIndex] = colorIndex;
                 }

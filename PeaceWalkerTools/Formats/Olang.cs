@@ -81,7 +81,11 @@ namespace PeaceWalkerTools.Olang
 
 
                 reader.BaseStream.Position = HeaderOffset;
-
+                if (reader.BaseStream.Length <= HeaderOffset)
+                {
+                    TextList = new List<OlangText>();
+                    return;
+                }
                 Unknown5 = reader.ReadInt32();
                 EntityCount = reader.ReadInt16();
                 Unknown6 = reader.ReadInt16();
@@ -303,7 +307,9 @@ namespace PeaceWalkerTools.Olang
         public static void ReplaceText(string sourcePath, string location)
         {
             var workbook = Workbook.Load(sourcePath);
-            var sheetMap = workbook.Worksheets.ToDictionary(x => x.Name, x => GetTextList(x));
+            var sheetMap = workbook.Worksheets.ToDictionary(
+                x => x.Name,
+                x => x.Rows.Skip(1).OrderBy(y => (double)(y.Cells[0].Value)).Select(y => y.Cells[3].GetText()?.Replace("\r\n", "\n")).ToList());
 
 
             var files = Directory.GetFiles(location, "*.olang");
@@ -323,11 +329,6 @@ namespace PeaceWalkerTools.Olang
 
                 olang.Write(file);
             }
-        }
-
-        private static List<string> GetTextList(Worksheet sheet)
-        {
-            return sheet.Rows.Skip(1).Select(x => GetText(x)).ToList();
         }
 
         private static string GetText(WorksheetRow row)

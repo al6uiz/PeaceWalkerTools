@@ -10,15 +10,13 @@ namespace PeaceWalkerTools
 
     public class TXP
     {
-        public static void Extract(string path)
+        public static void Unpack(string path)
         {
             var list1 = new List<TxpEntity>();
             var list2 = new List<TxpEntitySub>();
 
             using (var fs = File.OpenRead(path))
             {
-                //Debug.WriteLine(path);
-                fs.Position = 0;
                 var typeFlag = fs.ReadInt32();
                 var key = fs.ReadInt32();
 
@@ -149,7 +147,152 @@ namespace PeaceWalkerTools
                     {
                         if (bitmap != null)
                         {
-                            bitmap.Save(fileName);
+                            bitmap.Save(fileName, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                }
+
+            }
+        }
+
+        public static void Pack(string path)
+        {
+            var list1 = new List<TxpEntity>();
+            var list2 = new List<TxpEntitySub>();
+
+            using (var fs = File.OpenRead(path))
+            {
+                var typeFlag = fs.ReadInt32();
+                var key = fs.ReadInt32();
+
+                var count = fs.ReadInt32();
+                var metaCount = fs.ReadInt32();
+
+                Debug.WriteLine(string.Format("{0} {1} {2}", Path.GetFileName(path), count, metaCount));
+
+                var colorCount = fs.ReadInt32();
+
+                var header1Start = fs.ReadInt32();
+                var header2Start = fs.ReadInt32();
+
+                var paletteStart = fs.ReadInt32();
+
+                fs.Position = header1Start;
+
+                for (int i = 0; i < count; i++)
+                {
+                    var entity = new TxpEntity();
+
+                    entity.Unknown0 = fs.ReadInt32();
+                    entity.Unknown1 = fs.ReadInt32();
+                    entity.Unknown2 = fs.ReadInt32();
+
+                    if ((entity.Unknown0 & 0xFF) > 0x10)
+                    {
+                        entity.Unknown3 = fs.ReadInt32();
+                        entity.PixelStart = fs.ReadInt32();
+                    }
+                    else
+                    {
+                        entity.PixelStart = fs.ReadInt32();
+                        entity.Unknown3 = fs.ReadInt32();
+                    }
+
+                    list1.Add(entity);
+                }
+
+                fs.Position = header2Start;
+
+                for (int i = 0; i < metaCount; i++)
+                {
+                    var entity = new TxpEntitySub();
+
+                    entity.Unknown4 = fs.ReadInt32();
+                    entity.Unknown5 = fs.ReadInt32();
+
+                    entity.Unknown6 = fs.ReadInt32();
+                    entity.PaletteStart = fs.ReadInt32();
+
+                    entity.Unknown8 = fs.ReadInt32();
+                    entity.Unknown9 = fs.ReadInt32();
+
+                    entity.Unknown10 = fs.ReadInt32();
+                    entity.Unknown11 = fs.ReadInt32();
+
+                    entity.Width = fs.ReadInt16();
+                    entity.Height = fs.ReadInt16();
+                    entity.Unknown12 = fs.ReadInt32();
+
+                    list2.Add(entity);
+                }
+
+
+                fs.Position = list2[0].PaletteStart;
+                var current = 0;
+                while (fs.Position < list1[0].PixelStart)
+                {
+                    if (current + 1 < list2.Count && list2[current + 1].PaletteStart == fs.Position)
+                    {
+                        current++;
+                    }
+                    var colors = list2[current].Colors;
+
+                    var r = fs.ReadByte();
+                    var g = fs.ReadByte();
+                    var b = fs.ReadByte();
+                    var a = fs.ReadByte();
+
+                    colors.Add(Color.FromArgb(a, r, g, b));
+
+                    colorCount -= 4;
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    fs.Position = list1[i].PixelStart;
+                    var next = i + 1 < count ? list1[i + 1].PixelStart : (int)fs.Length;
+                    var length = next - list1[i].PixelStart;
+                    if (length <= 0)
+                    {
+                        list1[i].RawData = new byte[0];
+                    }
+                    else
+                    {
+                        var raw = fs.ReadBytes(length);
+                        list1[i].RawData = raw;
+
+                        if (list1[i].IsCompressed)
+                        {
+                            var compressedSize = BitConverter.ToInt32(raw, 0);
+
+                            var compressed = new byte[compressedSize];
+                            Buffer.BlockCopy(raw, 4, compressed, 0, compressedSize);
+
+                            list1[i].RawData = ZlibStream.UncompressBuffer(compressed);
+                        }
+                    }
+                }
+
+                Dump(list1, list2);
+
+
+                for (int i = 0; i < metaCount; i++)
+                {
+                    var paletteEntity = list2[i];
+                    var pixelEntity = list1[paletteEntity.PixelDataIndex];
+
+
+                    var pixelData = pixelEntity.RawData;
+
+                    var location = Path.GetDirectoryName(path);
+                    var name = Path.GetFileNameWithoutExtension(path);
+                    var fileName = Path.Combine(location, string.Format("{0}_{1}.png", name, i));
+
+                    using (var bitmap = new TiledPixelReader(pixelData, paletteEntity.Width, paletteEntity.Height, paletteEntity.Colors).GetImage())
+                    {
+                        if (bitmap != null)
+                        {
+                            bitmap.Save(fileName, System.Drawing.Imaging.ImageFormat.Png);
                         }
                     }
                 }

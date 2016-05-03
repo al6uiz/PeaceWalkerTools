@@ -1,35 +1,307 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Infragistics.Documents.Excel;
+using Infragistics.Documents.Excel.Sorting;
 using PeaceWalkerTools.Olang;
 
 namespace PeaceWalkerTools
 {
     partial class Program
     {
+        private static void Test()
+        {
+            //SlotData.Unpack(Settings.SourceUserFolder);
+
+            //foreach (var file in Directory.GetFiles("SLOT", "*.slot"))
+            //{
+            //    SlotFile.Unpack(file);
+            //}
+
+            SlotOlangUtility.ReplaceText(Path.Combine(Settings.TranslationFolder, "SlotOlang.xlsx"));
+
+            PackSlot();
+
+            return;
+
+            OlangUtility.ReplaceText(Path.Combine(Settings.TranslationFolder, "Olang.xlsx"), Path.Combine(Settings.Working, @"Olang\New"));
+
+            var stageLocation = Path.Combine(Settings.Working, "STAGEDAT");
+            ReplaceOlang(Path.Combine(Settings.Working, @"Olang\New"), stageLocation);
+
+            foreach (var dar in Directory.GetFiles(stageLocation, "*.dar.inf"))
+            {
+                DAR.Pack(dar);
+            }
+            
+
+            PackStage();
+        }
+
+        private static void PackSlot()
+        {
+            var olang = SlotOlangUtility.GetFiles();
+
+            foreach (var file in olang.Select(x => x + ".xml"))
+            {
+                SlotFile.Pack(file);
+            }
+
+            SlotData.Pack(Settings.SourceUserFolder, olang);
+
+            var sourceSlot = Path.Combine(Settings.SourceUserFolder, "SLOT.DAT");
+            var installSlot = Path.Combine(Settings.InstallFolder, "SLOT.DAT");
+
+            File.Copy(sourceSlot, installSlot, true);
+        }
+
+        private static void ReplaceOlang(string source, string targetOutput)
+        {
+            var map = Directory.GetFiles(source).ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
+
+            foreach (var olang in Directory.GetFiles(targetOutput, "*.olang", SearchOption.AllDirectories))
+            {
+                var key = Path.GetFileNameWithoutExtension(olang);
+
+                byte[] data;
+
+                if (map.TryGetValue(key, out data))
+                {
+                    File.WriteAllBytes(olang, data);
+                }
+            }
+        }
+
+        private static void ReplaceYPK()
+        {
+            YpkUtility.ReplaceText("ypk.xlsx", @"YPK\New");
+
+
+            var mapYpk = Directory.GetFiles(@"YPK\New").ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
+
+            foreach (var ypk in Directory.GetFiles("Extracted", "*.ypk", SearchOption.AllDirectories))
+            {
+                var key = Path.GetFileNameWithoutExtension(ypk);
+                byte[] data;
+                if (mapYpk.TryGetValue(key, out data))
+                {
+                    File.WriteAllBytes(ypk, data);
+                }
+            }
+        }
+
+        private static void UnpackStage()
+        {
+            var outputLocation = Path.Combine(Settings.Working, "STAGEDAT");
+            var source = Path.Combine(Settings.SourceUserFolder, "STAGEDAT.PDT");
+
+            var file = StageDataFile.Read(source, outputLocation);
+            SerializationHelper.Save(file, Path.Combine(Settings.Working, "STAGEDAT.PDT.xml"));
+        }
+
+        private static void PackStage()
+        {
+            var file = SerializationHelper<StageDataFile>.Read(Path.Combine(Settings.Working, "STAGEDAT.PDT.xml"));
+
+            var outputPath = Path.Combine(Settings.SourceUserFolder, "STAGEDAT.PDT");
+            var outputInatallPath = Path.Combine(Settings.InstallFolder, "STAGEDAT.PDT");
+
+            file.Write(outputPath);
+
+            File.Copy(outputPath, outputInatallPath, true);
+        }
+
+        private static void ExtractOlang()
+        {
+            var map = Workbook.Load(@"E:\Peace Walker\PSP_GAME\USRDIR\Olang.xlsx").Worksheets.ToDictionary(x => x.Name);
+            var workbook = Workbook.Load(@"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\Olang.xlsx");
+            var asciiPattern = new Regex(@"^[\u0000-\u007F]+$");
+
+            foreach (var sheet in workbook.Worksheets)
+            {
+                sheet.Rows[0].Cells[0].Value = "Key";
+                sheet.Rows[0].Cells[1].Value = "Japanese";
+                sheet.Rows[0].Cells[2].Value = "Korean";
+
+
+                if (map.ContainsKey(sheet.Name))
+                {
+                    var rowIndex = 1;
+                    var map2 = new Dictionary<string, string>();
+
+                    while (true)
+                    {
+                        var row = map[sheet.Name].Rows[rowIndex];
+
+                        //var row = sheet.Rows[rowIndex];
+                        if (row.Cells[1].GetText() == null)
+                        {
+                            break;
+                        }
+
+                        var value = (row.Cells[1].GetText()).Trim().Replace("\r\n", "\n");
+
+                        if (map2.ContainsKey(value))
+                        { }
+                        else
+                        {
+                            var valueTran = row.Cells[2].GetText();
+                            if (valueTran != null)
+                            {
+                                map2[value] = valueTran.Replace("\r\n", "\n");
+                            }
+                        }
+
+
+                        rowIndex++;
+                    }
+
+
+                    rowIndex = 1;
+                    while (true)
+                    {
+                        var row = sheet.Rows[rowIndex];
+
+                        if (row.Cells[1].Value == null)
+                        {
+                            break;
+                        }
+
+                        var value = (row.Cells[1].GetText()).Trim().Replace("\r\n", "\n");
+
+                        if (map2.ContainsKey(value))
+                        {
+                            row.Cells[2].Value = map2[value];
+                        }
+
+
+                        rowIndex++;
+                    }
+                }
+
+                var replaceEnglishOnly = true;
+                if (replaceEnglishOnly)
+                {
+                    var rowIndex = 1;
+
+                    while (true)
+                    {
+                        var row = sheet.Rows[rowIndex];
+
+                        if (row.Cells[0].Value == null)
+                        {
+                            break;
+                        }
+                        var value = row.Cells[1].GetText();
+
+                        if (asciiPattern.Match(value).Success)
+                        {
+                            row.Cells[2].Value = value;
+                        }
+
+                        rowIndex++;
+                    }
+                }
+            }
+
+            workbook.Save("Olang.xlsx");
+            //StageDataFile.Read(@"E:\Peace Walker\PSP_GAME\USRDIR\STAGEDAT.PDT");
+        }
+
+
         private void Misc()
         {
 
+            return;
+
+
+
+            //foreach (var file in Directory.GetFiles(@"SLOT\txp"))
+            //{
+            //    TXP.Extract(file);
+
+            //}
+
+
+            //using (var fs = File.OpenRead(@"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\_Extracted\291_54242D62.gcx"))
+            //{
+            //    var set = Briefing.ReadBriefingTitles(fs);
+            //}
+
+            //SaveSlotOlangExcel();
+            //SlotOlangUtility.ReplaceSlotOlang();
+            //foreach (var olang in Directory.GetFiles("SLOT_", "*.olang"))
+            //{
+            //    var olf = OlangFile.Read(olang);
+            //    SerializationHelper.Save(olf, olang + ".xml");
+            //}
+
+            //SimplePDT.ExtractSimplePDTs();
+            SlotData.Unpack(@"E:\Peace Walker\PSP_GAME\USRDIR");
+            //Slot.Pack(@"E:\Peace Walker\PSP_GAME\USRDIR");
+
+            //foreach (var pdt in Directory.GetFiles(@"E:\Games\Emulators\PSP\memstick\PSP\SAVEDATA\NPJH50045DLC", "*.pdt"))
+            //{
+            //    var raw = File.ReadAllBytes(pdt);
+            //    var key = raw[0];
+            //    for (int i = 0; i < raw.Length; i++)
+            //    {
+            //        raw[i] ^= key;
+            //    }
+
+            //    File.WriteAllBytes(pdt + ".dec", raw);
+            //}
+
+            return;
+
+            ReplaceYPK();
+
+            //ReplaceOlang();
+
+            foreach (var dar in Directory.GetFiles("Extracted", "*.dar.inf"))
+            {
+                DAR.Pack(dar);
+            }
+
+
+            PackStage();
+            return;
+
+            //OlangUtility.ReplaceText("Olang.xlsx", @".\olang");
+
+
+
+            //foreach (var item in Directory.GetFiles(@".\Extracted", "*.dar.inf"))
+            //{
+            //    DAR.Pack(item);
+            //}
+            //Slot.Read(@"E:\Peace Walker\PSP_GAME\USRDIR");
+
+            return;
+            //Briefing.UnpackBriefing2();
+
+
+
+
+            //ExtractOlang();
+
+            //UnpackOlang();
 
             //UnpackOlang();
 
 
             //StageDataFile.Read(@"E:\Games\Metal Gear Solid\PW\Metal_Gear_Solid_Peace_Walker_USA\PSP_GAME\USRDIR\STAGEDAT.PDT");
 
-            ////StageDataFile.Read(@"E:\Peace Walker\PSP_GAME\USRDIR\STAGEDAT.PDT");
 
-            foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.qar"))
-            {
-                //DAR.Unpack(file);
-                QAR.Unpack(file);
-            }
+            //foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.qar"))
+            //{
+            //    //DAR.Unpack(file);
+            //    QAR.Unpack(file);
+            //}
 
             ////QAR.Extract(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted\264_51AC44B4.qar");
             //foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.qar"))
@@ -37,10 +309,10 @@ namespace PeaceWalkerTools
             //    QAR.Extract(file);
             //}
 
-            foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.txp", SearchOption.AllDirectories))
-            {
-                TXP.Extract(file);
-            }
+            //foreach (var file in Directory.GetFiles(@"D:\Projects\SandBox\TranslatePW\Font\bin\Debug\Extracted", "*.txp", SearchOption.AllDirectories))
+            //{
+            //    TXP.Unpack(file);
+            //}
 
             return;
             //UnpackOlang();
@@ -244,11 +516,11 @@ namespace PeaceWalkerTools
             workbook.Save(Path.Combine(location, "olang_.xlsx"));
         }
 
-        private static void SaveSlotOlangExcel()
+        private static void SaveOlangToExcel(string location, string output)
         {
             var workbook = new Workbook(WorkbookFormat.Excel2007);
 
-            foreach (var item in Directory.GetFiles("SLOT", "*.olang").Select(x => new FileInfo(x)).OrderBy(x => x.Length).Select(x => x.FullName))
+            foreach (var item in Directory.GetFiles(location, "*.olang").Select(x => new FileInfo(x)).OrderBy(x => x.Length).Select(x => x.FullName))
             {
                 var key = Path.GetFileNameWithoutExtension(item);
                 //key = key.Remove(key.IndexOf('.'));
@@ -291,9 +563,20 @@ namespace PeaceWalkerTools
                     }
                     row.Cells[2].Value = olang.TextList[i].Text;
                 }
+
+                //Sort(olang.TextList.Count, sheet);
             }
 
-            workbook.Save("SlotOlang.xlsx");
+
+
+            workbook.Save(output);
+        }
+
+        private static void Sort(int rowCount, Worksheet sheet)
+        {
+            var region = new WorksheetRegion(sheet, 0, 0, rowCount, 3);
+            var table = region.FormatAsTable(true);
+            table.SortSettings.SortConditions.Add(table.Columns[1], new OrderedSortCondition());
         }
 
         private static void ReplaceSpecial()
