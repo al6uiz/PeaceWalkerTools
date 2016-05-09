@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -129,8 +128,7 @@ namespace PeaceWalkerTools
                 File.WriteAllBytes(path, ms.ToArray());
             }
         }
-
-
+        
         private static Regex _regex = new Regex("[\r\n]+");
         private string ConvertText(string text)
         {

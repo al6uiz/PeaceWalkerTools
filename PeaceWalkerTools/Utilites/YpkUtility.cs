@@ -78,7 +78,7 @@ namespace PeaceWalkerTools
                 {
                     if (!string.IsNullOrWhiteSpace(korean[i]))
                     {
-                        list[i].Text = korean[i];
+                        list[i].Text = korean[i].ReplaceWideCharacters();
                     }
                 }
 
@@ -88,36 +88,10 @@ namespace PeaceWalkerTools
         }
 
 
-        private static string GetText(WorksheetRow row)
-        {
-            var cellValue = row.Cells[5].Value;
-
-            return GetText(cellValue);
-        }
-
-        private static string GetText(object cellValue)
-        {
-            if (cellValue == null)
-            {
-                return null;
-            }
-            if (cellValue is string)
-            {
-                return cellValue as string;
-            }
-            else if (cellValue is FormattedString)
-            {
-                return (cellValue as FormattedString).ToString();
-            }
-            else
-            {
-                return null;
-            }
-        }
 
         private static List<string> GetTextList(Worksheet sheet)
         {
-            return sheet.Rows.Skip(1).Select(x => GetText(x)).ToList();
+            return sheet.Rows.Skip(1).Select(x => x.Cells[5].GetText()).ToList();
         }
     }
 }

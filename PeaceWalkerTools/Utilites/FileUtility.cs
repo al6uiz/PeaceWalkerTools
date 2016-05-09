@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 
 namespace PeaceWalkerTools
 {
@@ -17,9 +12,17 @@ namespace PeaceWalkerTools
             }
         }
 
-        internal static void PrepareFolder(string path)
+        internal static void PrepareFolderFile(string path)
         {
             var location = Path.GetDirectoryName(path);
+
+            if (!Directory.Exists(location))
+            {
+                Directory.CreateDirectory(location);
+            }
+        }
+        internal static void PrepareFolder(string location)
+        {
             if (!Directory.Exists(location))
             {
                 Directory.CreateDirectory(location);

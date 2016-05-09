@@ -89,19 +89,17 @@ namespace PeaceWalkerTools
         }
 
 
-        private static void UnpackBriefing()
+        public static void Repack(string location, string sourcePath)
         {
-            var location = @"E:\Games\Metal Gear Solid\Metal Gear Solid - Peace Walker\Metal Gear Solid Peace Walker GEN-D3\PSP_GAME\USRDIR";
             var fileNameDAT = "BRIEFING.DAT";
-            var fileNameExcel = "BRIEFING.xlsx";
-            Dictionary<int, List<string>> koreanSet = ReadKorean(location, fileNameExcel);
+            Dictionary<int, List<string>> koreanSet = ReadKorean(sourcePath);
 
             var sets = new List<BriefingSet>();
 
-            var data = File.ReadAllBytes(Path.Combine(location, fileNameDAT + ".original"));
+            var data = File.ReadAllBytes(Path.Combine(location, fileNameDAT + ".Original"));
+
             using (var fs = new MemoryStream(data))
             {
-
                 while (fs.Position < fs.Length)
                 {
                     var magic = new byte[4];
@@ -146,7 +144,8 @@ namespace PeaceWalkerTools
 
                     if (set.TextSectionLength < sizeKor)
                     {
-                        Debug.WriteLine(string.Format("Skip {0}", setIndex));
+                        Debug.WriteLine(string.Format("Skip {0} : +{1}", setIndex, sizeKor - set.TextSectionLength));
+
                         continue;
                     }
 
@@ -180,19 +179,15 @@ namespace PeaceWalkerTools
 
 
             File.WriteAllBytes(Path.Combine(location, fileNameDAT), data);
-
-            var output = @"E:\Games\Emulators\PSP\memstick\PSP\SAVEDATA\NPJH50045DAT\BRIEFING.DAT";
-            File.WriteAllBytes(output, data);
-
         }
 
-        private static Dictionary<int, List<string>> ReadKorean(string location, string fileNameExcel)
+        private static Dictionary<int, List<string>> ReadKorean(string path)
         {
             var koreanSet = new Dictionary<int, List<string>>();
 
             var rowIndex = 1;
 
-            var sheet = Workbook.Load(Path.Combine(location, fileNameExcel)).Worksheets.FirstOrDefault();
+            var sheet = Workbook.Load(path).Worksheets.FirstOrDefault();
 
             while (true)
             {
@@ -213,14 +208,7 @@ namespace PeaceWalkerTools
                 var cell = row.Cells[2];
                 var value = cell.Value;
 
-                if (value is string)
-                {
-                    list.Add(value as string);
-                }
-                else
-                {
-                    list.Add(cell.GetText());
-                }
+                list.Add(cell.GetText()?.ReplaceWideCharacters());
             }
 
             return koreanSet;
@@ -257,12 +245,24 @@ namespace PeaceWalkerTools
                 set.Entities[i].Text = fs.ReadString(set.Entities[i].Offset + set.TextSectionStart);
             }
 
+
+
             if (set.Entities.Count > 0)
             {
                 var last = set.Entities.Last();
 
                 set.TextSectionLength = last.Offset + Encoding.UTF8.GetByteCount(last.Text) + 1;
             }
+            fs.Position = set.TextSectionStart + set.TextSectionLength;
+            fs.Offset(4);
+            while (fs.ReadInt32() == 0)
+            { }
+            var max = (fs.Position - 4) - set.TextSectionStart;
+            if (max < set.TextSectionLength)
+            {
+
+            }
+            set.TextSectionLength =(int) max;
 
             fs.Position = set.Offset + 8 + 4 + length;
 

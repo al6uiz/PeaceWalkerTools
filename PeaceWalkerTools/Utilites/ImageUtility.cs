@@ -182,18 +182,6 @@ namespace PeaceWalkerTools
 
             byte[] output = new byte[width * height];
 
-            //for (int cy = 0; cy < height; cy++)
-            //{
-            //    for (int cx = 0; cx < width; cx++)
-            //    {
-            //        output[cy * width + cx] = input[stride * (y + cy) + x + cx];
-            //    }
-            //}
-
-            //return output;
-
-
-
             unsafe
             {
                 fixed (byte* pIn = input)
@@ -239,8 +227,7 @@ namespace PeaceWalkerTools
             return output;
         }
 
-        private static unsafe byte* Unswizzle(
-         TextureFormat format, byte* pin, byte* pout, uint width, uint height)
+        private static unsafe void Unswizzle(TextureFormat format, byte* pIn, byte* pOut, uint width, uint height)
         {
             uint rowWidth;
             uint byc;
@@ -261,8 +248,8 @@ namespace PeaceWalkerTools
             }
 
 
-            uint* src = (uint*)pin;
-            byte* ydest = pout;
+            uint* src = (uint*)pIn;
+            byte* ydest = pOut;
 
             for (int by = 0; by < byc; by++)
             {
@@ -282,7 +269,6 @@ namespace PeaceWalkerTools
                 }
                 ydest += rowWidth * 8;
             }
-            return pout;
         }
 
 
@@ -388,22 +374,32 @@ namespace PeaceWalkerTools
 
 
 
-
-
-        public static byte[] Unswizzle(TextureFormat format, byte[] input, uint dataWidth, uint x, uint y, uint width, uint height)
+        internal static void Write(byte[] target, int targetWidth, byte[] source, int x, int y, int w, int h)
         {
-            byte[] output = new byte[input.Length];
-
             unsafe
             {
-                fixed (byte* pIn = input)
-                fixed (byte* pOut = output)
+                fixed (byte* pTarget = target)
+                fixed (byte* pSource = source)
                 {
-                    Unswizzle(format, pIn, pOut, dataWidth, x, y, width, height);
+                    Write(pTarget, pSource, targetWidth, x, y, w, h);
                 }
             }
+        }
 
-            return output;
+        private static unsafe void Write(byte* pTarget, byte* pSource, int stride, int x, int y, int w, int h)
+        {
+            byte* dest = pTarget;
+            byte* src = pSource;
+
+            for (int cy = 0; cy < h; cy++)
+            {
+                dest = pTarget + stride * (y + cy) + x;
+                src = pSource + cy * w;
+                for (int cx = 0; cx < w; cx++)
+                {
+                    *(dest++) = *(src++);
+                }
+            }
         }
 
         public static byte[] Swizzle(TextureFormat format, byte[] input, uint width, uint height)
@@ -422,26 +418,33 @@ namespace PeaceWalkerTools
             return output;
         }
 
-        private static unsafe byte* Swizzle(TextureFormat format, byte* pin, byte* pout, uint width, uint height)
+        private static unsafe void Swizzle(TextureFormat format, byte* pIn, byte* pOut, uint width, uint height)
         {
             uint rowWidth;
+            uint byc;
             if (format.Size == 0)
                 rowWidth = (width / 2);
             else
                 rowWidth = width * format.Size;
 
             uint pitch = (rowWidth - 16) / 4;
-            uint blockCountX = (rowWidth / 16);
-            uint blockCountY = (height / 8);
+            uint bxc = rowWidth / 16;
+            if (format.Size == 0)
+            {
+                byc = height / 4;
+            }
+            else
+            {
+                byc = height / 8;
+            }
+            uint* dest = (uint*)pOut;
+            byte* ysrc = pIn;
 
-            uint* dest = (uint*)pout;
-            byte* ysrc = pin;
-
-            for (int by = 0; by < blockCountY; by++)
+            for (int by = 0; by < byc; by++)
             {
                 byte* xsrc = ysrc;
 
-                for (int bx = 0; bx < blockCountX; bx++)
+                for (int bx = 0; bx < bxc; bx++)
                 {
                     uint* src = (uint*)xsrc;
                     for (int j = 0; j < 8; ++j)
@@ -456,53 +459,6 @@ namespace PeaceWalkerTools
                 }
                 ysrc += rowWidth * 8;
             }
-            return pout;
-        }
-
-        private static unsafe byte* Unswizzle(
-            TextureFormat format, byte* pin, byte* pout,
-            uint dataWidth, uint x, uint y, uint width, uint height)
-        {
-            uint rowWidth;
-            if (format.Size == 0)
-                rowWidth = (dataWidth / 2);
-            else
-                rowWidth = dataWidth * format.Size;
-
-            uint pitch = (rowWidth - 16) / 4;
-            uint bxc = width / 16;
-            uint byc = height / 8;
-
-            uint* src = (uint*)pin;
-            byte* ydest = pout;
-
-            var sy = y / 8;
-            var sx = x / 16;
-
-            for (int by = 0; by < byc; by++)
-            {
-                ydest = pout + by * rowWidth * 8;
-
-                byte* xdest = ydest;
-
-                for (int bx = 0; bx < bxc; bx++)
-                {
-                    uint* dest = (uint*)xdest;
-
-
-
-                    for (int n = 0; n < 8; n++)
-                    {
-                        *(dest++) = *(src++);
-                        *(dest++) = *(src++);
-                        *(dest++) = *(src++);
-                        *(dest++) = *(src++);
-                        dest += pitch;
-                    }
-                    xdest += 16;
-                }
-            }
-            return pout;
         }
 
         #endregion

@@ -4,14 +4,12 @@
     {
         internal static int Ins(ref int rd, int rs, int p, int s)
         {
-
             var bitMask = mask[s];
             var originalMask = (int)~(bitMask << p);
 
             rd = (rd & originalMask) | (int)((rs & bitMask) << p);
 
             return rd;
-
         }
 
         static uint[] mask =
@@ -49,7 +47,6 @@
             0x3fffffff,
             0x7fffffff,
             0xffffffff,
-
         };
     }
 }

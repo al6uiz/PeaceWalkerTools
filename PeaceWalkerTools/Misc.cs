@@ -15,11 +15,15 @@ namespace PeaceWalkerTools
     {
         private static void Test()
         {
-            var e = @"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\_Extracted\535_C9D05E75_qar\tgs_epigraph.txp";
-            TXP.Unpack(e);
+            //ReplaceSpiritOhd();
 
-            return;
-            //foreach (var file in Directory.GetFiles(@"_Extracted", "*.txp", SearchOption.AllDirectories))
+            //return;
+            //UnpackStage();
+            //var e = @"D:\Projects\Sandbox\PeaceWalkerTools\PeaceWalkerTools\bin\Debug\_Extracted\535_C9D05E75_qar\tgs_epigraph.txp";
+            //TXP.Unpack(e);
+
+            //return;
+            //foreach (var file in Directory.GetFiles(@"STAGEDAT", "*.txp", SearchOption.AllDirectories))
             //{
             //    try
             //    {
@@ -29,8 +33,17 @@ namespace PeaceWalkerTools
 
             //}
 
+            //TXP.Pack(@"STAGEDAT\C2D56E89_qar\tgs_epigraph.txp"); // 프롤로그
+            //TXP.Pack(@"STAGEDAT\9215ECCE_qar\chapter.txp"); // 서장
+            //TXP.Pack(@"STAGEDAT\8B049318_qar\chapter.txp"); // 챕터
 
-            //foreach (var file in Directory.GetFiles(@"SLOT\txp").Reverse())
+            //return;
+            //foreach (var file in Directory.GetFiles(@"STAGEDAT", "*.qar"))
+            //{
+            //    QAR.Unpack(file);
+            //}
+
+            //foreach (var file in Directory.GetFiles(@"STAGEDAT", "*.txp", SearchOption.AllDirectories))
             //{
             //    TXP.Unpack(file);
             //}
@@ -44,13 +57,17 @@ namespace PeaceWalkerTools
             //    SlotFile.Unpack(file);
             //}
 
+            Briefing.Repack(Settings.SourceUserFolder, Path.Combine(Settings.TranslationFolder, "Briefing.xlsx"));
+            File.Copy(Path.Combine(Settings.SourceUserFolder, "BRIEFING.DAT"), Path.Combine(Settings.InstallFolder, "BRIEFING.DAT"), true);
+
             SlotOlangUtility.ReplaceText(Path.Combine(Settings.TranslationFolder, "SlotOlang.xlsx"));
 
             PackSlot();
 
-            return;
 
             OlangUtility.ReplaceText(Path.Combine(Settings.TranslationFolder, "Olang.xlsx"), Path.Combine(Settings.Working, @"Olang\New"));
+
+            ReplaceYPK();
 
             var stageLocation = Path.Combine(Settings.Working, "STAGEDAT");
             ReplaceOlang(Path.Combine(Settings.Working, @"Olang\New"), stageLocation);
@@ -60,8 +77,46 @@ namespace PeaceWalkerTools
                 DAR.Pack(dar);
             }
 
+            //foreach (var qar in Directory.GetFiles(stageLocation, "*.qar"))
+            //{
+            //    QAR.Unpack(qar);
+            //}
+
+            //foreach (var qar in Directory.GetFiles(stageLocation, "*.qar.inf"))
+            //{
+            //    QAR.Pack(qar);
+            //}
+            QAR.Pack(@"STAGEDAT\C2D56E89.qar.inf");
+            QAR.Pack(@"STAGEDAT\9215ECCE.qar.inf");
+            QAR.Pack(@"STAGEDAT\8B049318.qar.inf");
 
             PackStage();
+        }
+
+        private static void ReplaceSpiritOhd()
+        {
+            var textList = Workbook.Load("SpiritOhd.xlsx").Worksheets[0].Rows.Skip(1).Select(x => x.Cells[2].GetText()).ToList();
+
+            foreach (var path in Directory.GetFiles(Path.Combine(Settings.Working, "STAGEDAT"), "spirit_lang_data.ohd", SearchOption.AllDirectories))
+            {
+                //var ohd = SpiritOhd.Read(path);
+
+
+                SpiritOhd.Write(path, textList);
+            }
+        }
+
+        private static void ExportToExcel(SpiritOhd ohd)
+        {
+            var workbook = new Workbook(WorkbookFormat.Excel2007);
+            var sheet = workbook.Worksheets.Add("Sheet");
+
+            for (int i = 0; i < ohd.Texts.Count; i++)
+            {
+                sheet.Rows[i + 1].Cells[0].Value = ohd.Texts[i];
+            }
+
+            workbook.Save("SpiritOhd.xlsx");
         }
 
         private static void PackSlot()
@@ -100,12 +155,14 @@ namespace PeaceWalkerTools
 
         private static void ReplaceYPK()
         {
-            YpkUtility.ReplaceText("ypk.xlsx", @"YPK\New");
+            var sourceLocation = Path.Combine(Settings.Working, "ypk");
+            var sourceStage = Path.Combine(Settings.Working, "STAGEDAT");
 
+            YpkUtility.ReplaceText(Path.Combine(Settings.TranslationFolder, "ypk.xlsx"), sourceLocation);
 
-            var mapYpk = Directory.GetFiles(@"YPK\New").ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
+            var mapYpk = Directory.GetFiles(sourceLocation).ToDictionary(x => Path.GetFileNameWithoutExtension(x), x => File.ReadAllBytes(x));
 
-            foreach (var ypk in Directory.GetFiles("Extracted", "*.ypk", SearchOption.AllDirectories))
+            foreach (var ypk in Directory.GetFiles(sourceStage, "*.ypk", SearchOption.AllDirectories))
             {
                 var key = Path.GetFileNameWithoutExtension(ypk);
                 byte[] data;
@@ -119,7 +176,7 @@ namespace PeaceWalkerTools
         private static void UnpackStage()
         {
             var outputLocation = Path.Combine(Settings.Working, "STAGEDAT");
-            var source = Path.Combine(Settings.SourceUserFolder, "STAGEDAT.PDT");
+            var source = Path.Combine(Settings.SourceUserFolder, "STAGEDAT.PDT.Original");
 
             var file = StageDataFile.Read(source, outputLocation);
             SerializationHelper.Save(file, Path.Combine(Settings.Working, "STAGEDAT.PDT.xml"));
@@ -237,7 +294,18 @@ namespace PeaceWalkerTools
 
         private void Misc()
         {
+            UnpackStage();
 
+            foreach (var dar in Directory.GetFiles("STAGEDAT", "*.dar"))
+            {
+                DAR.Unpack(dar);
+            }
+            foreach (var qar in Directory.GetFiles("STAGEDAT", "*.qar"))
+            {
+                QAR.Unpack(qar);
+            }
+
+            return;
             return;
 
 

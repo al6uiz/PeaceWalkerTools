@@ -77,8 +77,15 @@ namespace PeaceWalkerTools
             switch (ext)
             {
                 case ".dar":
-                DAR.Pack(path);
-                break;
+                {
+                    DAR.Pack(path);
+                    break;
+                }
+                case ".qar":
+                {
+                    QAR.Pack(path);
+                    break;
+                }
                 default:
                 break;
             }

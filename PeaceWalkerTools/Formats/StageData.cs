@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
 using Ionic.Zlib;
@@ -30,11 +29,8 @@ namespace PeaceWalkerTools
         {
             var sd = new StageDataFile();
 
+            FileUtility.PrepareFolder(outputLocation);
 
-            if (!Directory.Exists("Extracted"))
-            {
-                Directory.CreateDirectory("Extracted");
-            }
 
             string combineKey = null;
 
@@ -119,8 +115,9 @@ namespace PeaceWalkerTools
                     entity.CombineKey = combineKey;
 
                     var extension = entity.Extension == EntityExtensions.Unknown ? "" : entity.Extension.ToString();
+                    var fileName = Path.Combine(outputLocation, string.Format("{0:X8}.{1}", entity.Hash, extension));
 
-                    File.WriteAllBytes(string.Format(@"Extracted\{0:X8}.{1}", entity.Hash, extension), decompressed);
+                    File.WriteAllBytes(fileName, decompressed);
                 }
             }
 
@@ -151,7 +148,7 @@ namespace PeaceWalkerTools
                     Debug.Write(string.Format("[{0} / {1}] ", ++index, Entities.Count));
 
                     entity.Position = (uint)writer.BaseStream.Position;
-                    var data = Path.Combine(Settings.Working,"STAGEDAT", string.Format("{0:X8}.{1}", entity.Hash, entity.Extension));
+                    var data = Path.Combine(Settings.Working, "STAGEDAT", string.Format("{0:X8}.{1}", entity.Hash, entity.Extension));
                     var raw = File.ReadAllBytes(data);
                     var compressed = Compress(Hash, raw);
                     entity.Size = (uint)compressed.Length;

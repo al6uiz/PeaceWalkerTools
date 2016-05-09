@@ -22,7 +22,7 @@ namespace PeaceWalkerTools
 
             var textMap = workbook.Worksheets.ToDictionary(
                 x => x.Name, 
-                x => x.Rows.Skip(1).OrderBy(y => (double)(y.Cells[0].Value)).Select(y => y.Cells[3].GetText()?.Replace("\r\n", "\n")).ToList());
+                x => x.Rows.Skip(1).OrderBy(y => (double)(y.Cells[0].Value)).Select(y => y.Cells[3].GetText()).ToList());
 
             var slots = Directory.GetFiles("SLOT", "*.olang").Select(x => Path.GetFileName(x.Remove(22) + ".slot.xml")).Distinct();
 
@@ -53,7 +53,7 @@ namespace PeaceWalkerTools
                         {
                             if (!string.IsNullOrEmpty(texts[i]))
                             {
-                                olang.TextList[i].Text = texts[i].Replace('!', '！').Replace('?', '？');
+                                olang.TextList[i].Text = texts[i].ReplaceWideCharacters();
                             }
                         }
 

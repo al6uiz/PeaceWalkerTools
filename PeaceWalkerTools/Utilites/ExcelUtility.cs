@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Infragistics.Documents.Excel;
 
 namespace PeaceWalkerTools
@@ -38,6 +35,31 @@ namespace PeaceWalkerTools
             {
                 return null;
             }
+        }
+
+        private static Dictionary<string, string> WIDE_LETTERS = new Dictionary<string, string>
+        {
+            {"!","！" },
+            {"?","？" },
+            {"...","…" },
+            {"\r\n","\n" },
+            {":","：" },
+            {".","．" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+            //{"","" },
+        };
+
+        private static string EXPRESSION_WIDE_LETTERS = @"(\!|\?|\.\.\.|\r\n|\:|\.)";
+
+        public static string ReplaceWideCharacters(this string text)
+        {
+            return Regex.Replace(text, EXPRESSION_WIDE_LETTERS, m => WIDE_LETTERS[m.Value]);
         }
 
 
